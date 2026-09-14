@@ -18,28 +18,15 @@
   #wrap{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;}
   canvas{display:block;image-rendering:auto;background:#06090f;
     box-shadow:0 0 0 1px #16202c, 0 24px 80px rgba(0,0,0,.8);}
-  #overlay{position:absolute;inset:0;display:none;align-items:center;justify-content:center;
-    padding:6vh 6vw;background:radial-gradient(ellipse at 50% 40%, rgba(6,9,14,.42), rgba(3,5,9,.74));
-    backdrop-filter:blur(1px);overflow:auto;}
+  #overlay{position:absolute;inset:0;display:none;align-items:flex-start;justify-content:center;
+    padding:4vh 6vw;box-sizing:border-box;background:radial-gradient(ellipse at 50% 40%, rgba(8,12,20,.86), rgba(4,6,10,.97));
+    backdrop-filter:blur(2px);overflow:auto;}
   #overlay.on{display:flex;}
-  .card{max-width:760px;width:100%;animation:rise .5s ease both;
-    background:linear-gradient(180deg, rgba(10,16,25,.82), rgba(7,11,18,.9));
-    border:1px solid rgba(255,214,107,.16);border-radius:16px;
-    padding:clamp(26px,4vw,44px) clamp(26px,4.5vw,50px);
-    box-shadow:0 0 0 1px rgba(120,170,235,.05) inset,
-               0 30px 90px rgba(0,0,0,.65),
-               0 0 60px rgba(255,214,107,.05);
-    backdrop-filter:blur(10px);}
+  .card{max-width:760px;width:100%;animation:rise .5s ease both;margin:0 auto;}
   @keyframes rise{from{opacity:0;transform:translateY(14px);}to{opacity:1;transform:none;}}
   .kicker{font:600 12px/1 ui-monospace,SFMono-Regular,Menlo,monospace;
-    letter-spacing:.34em;text-transform:uppercase;color:var(--dim);margin-bottom:18px;
-    display:flex;align-items:center;gap:10px;}
-  .kicker::before{content:"";width:7px;height:7px;border-radius:50%;background:#ffd66b;
-    box-shadow:0 0 10px 2px rgba(255,214,107,.7);flex:none;}
-  h1{font-size:clamp(44px,9vw,96px);line-height:.92;margin:0 0 10px;letter-spacing:.06em;font-weight:500;
-    background:linear-gradient(180deg,#f4f8ff 0%,#c7d6ea 55%,#8fa6c2 100%);
-    -webkit-background-clip:text;background-clip:text;color:transparent;
-    text-shadow:0 0 46px rgba(150,190,255,.35);}
+    letter-spacing:.34em;text-transform:uppercase;color:var(--dim);margin-bottom:18px;}
+  h1{font-size:clamp(44px,9vw,96px);line-height:.92;margin:0 0 10px;letter-spacing:.06em;font-weight:500;}
   h2{font-size:clamp(24px,4vw,38px);line-height:1.1;margin:0 0 18px;font-weight:500;letter-spacing:.02em;}
   p{font-size:clamp(15px,1.9vw,19px);line-height:1.62;margin:0 0 14px;color:#c3cedd;max-width:62ch;}
   p.speaker{font:600 12px/1 ui-monospace,SFMono-Regular,Menlo,monospace;letter-spacing:.28em;
@@ -65,15 +52,11 @@
     border-radius:20px;padding:6px 14px;margin-bottom:20px;}
   .modeGrid{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin:22px 0 6px;}
   @media (max-width:640px){.modeGrid{grid-template-columns:1fr;}}
-  .modeBtn{display:flex;align-items:flex-start;gap:14px;text-align:left;width:100%;cursor:pointer;
-    background:rgba(16,26,38,.72);border:1px solid #223245;border-left:3px solid #3a4a5e;
-    border-radius:10px;padding:16px 18px;
-    color:var(--ink);font-family:inherit;transition:border-color .15s,transform .15s,background .15s,box-shadow .15s;}
-  .modeBtn:hover{border-color:#4a6a8f;border-left-color:#ffd66b;background:#132234;
-    transform:translateY(-2px);box-shadow:0 10px 30px rgba(0,0,0,.4);}
+  .modeBtn{display:block;text-align:left;width:100%;cursor:pointer;
+    background:#101a26;border:1px solid #223245;border-radius:10px;padding:16px 18px;
+    color:var(--ink);font-family:inherit;transition:border-color .15s,transform .15s,background .15s;}
+  .modeBtn:hover{border-color:#4a6a8f;background:#132234;transform:translateY(-2px);}
   .modeBtn:active{transform:translateY(0);}
-  .modeBtn .icon{font-size:22px;line-height:1;flex:none;margin-top:1px;
-    filter:drop-shadow(0 0 8px rgba(255,214,107,.35));}
   .modeBtn .num{font:600 11px ui-monospace,monospace;letter-spacing:.2em;color:var(--dim);}
   .modeBtn .lbl{font-size:17px;margin:5px 0 3px;letter-spacing:.01em;}
   .modeBtn .desc{font:500 12px/1.4 ui-monospace,monospace;color:#8b98a9;letter-spacing:.01em;}
@@ -129,7 +112,7 @@ fitCanvas();
 const BASE = {
   accel:2600, maxSpeed:265, friction:9.0, radius:13,
   dashSpeed:760, dashTime:0.16, dashCd:1.35,
-  ammo:5, fireCd:0.22, reload:0.9,
+  ammo:10, fireCd:0.07, reload:0.25,
   moteSpeed:520, moteRadius:5, moteBounces:5, moteLife:6.0, armTime:0.45,
   parryTime:0.14, parryCd:0.9, parryReach:38, parryArc:Math.PI*0.62, returnSpeed:660,
   bounceGain:1,                      // velocity multiplier applied on each bounce
@@ -168,7 +151,7 @@ const CHARS = [
     passive:"Annealed — a wide guard that recovers fast, but only two motes.",
     special:"PRISM", specialText:"Your next mote splits in three on its first wall.",
     ending:"blows a lens so true the beam reaches the far shore, and is answered.",
-    stats:{ ammo:3, parryArc:Math.PI*0.92, parryCd:0.6, parryReach:44 } },
+    stats:{ ammo:10, parryArc:Math.PI*0.92, parryCd:0.6, parryReach:44 } },
 
   { id:"odall", name:"ODALL", title:"The Wrecker", color:"#ff8a6b",
     passive:"Heavy glass — slow, fat motes that ride the walls far longer.",
@@ -224,6 +207,54 @@ function saveProgress(){
 }
 let PROGRESS = loadProgress();
 let LAST_COINS_EARNED = 0;
+/* ---------- player settings / game modes ---------- */
+const SETTINGS_KEY = "saltline_settings_v2";
+const DEFAULT_KEYS = {
+  p1:{up:"KeyW",down:"KeyS",left:"KeyA",right:"KeyD",fire:"Space",parry:"KeyQ",dash:"KeyE",special:"KeyF"},
+  p2:{up:"ArrowUp",down:"ArrowDown",left:"ArrowLeft",right:"ArrowRight",fire:"Period",parry:"Comma",dash:"Slash",special:"Semicolon"}
+};
+function loadSettings(){
+  try{ const x=JSON.parse(localStorage.getItem(SETTINGS_KEY)||"null");
+    if(x?.p1&&x?.p2) return {p1:{...DEFAULT_KEYS.p1,...x.p1},p2:{...DEFAULT_KEYS.p2,...x.p2}};
+  }catch{}
+  return JSON.parse(JSON.stringify(DEFAULT_KEYS));
+}
+let KEYBINDS=loadSettings();
+function saveSettings(){try{localStorage.setItem(SETTINGS_KEY,JSON.stringify(KEYBINDS));}catch{}}
+function keyLabel(code){const n={Space:"SPACE",Period:".",Comma:",",Slash:"/",Semicolon:";",ShiftLeft:"L SHIFT",ShiftRight:"R SHIFT",ControlLeft:"L CTRL",ControlRight:"R CTRL",AltLeft:"L ALT",AltRight:"R ALT"};return n[code]||(code.startsWith("Key")?code.slice(3):code.replace("Arrow",""));}
+function currentSchemes(){return [{...KEYBINDS.p1,special:[KEYBINDS.p1.special,"KeyR"]},{...KEYBINDS.p2,special:[KEYBINDS.p2.special,"ShiftRight","Numpad0"]}];}
+let GAME_MODE="classic";
+const GAME_MODES={
+ classic:{name:"Classic Duel",desc:"First to 3 round wins. The original SALT LINE rules."},
+ sudden:{name:"Sudden Death",desc:"One round. One mistake. No second chances."},
+ frenzy:{name:"Ammo Frenzy",desc:"Ten-shot magazines and fast respawning ammo caches."},
+ tide:{name:"Closing Tide",desc:"The arena starts closing after 18 seconds. Keep moving."}
+};
+function modeCard(next){
+ show(`<div class="kicker">Game modes</div><h2>Choose the rules</h2><p>Same SALT LINE combat, different win conditions.</p>
+ <div class="modeGrid">${Object.entries(GAME_MODES).map(([id,m],i)=>`<button class="modeBtn" id="gm_${id}"><div class="num">${i+1} · MODE</div><div class="lbl">${m.name}</div><div class="desc">${m.desc}</div></button>`).join("")}</div>
+ <button class="backBtn" id="gmback">‹ BACK</button>`);
+ Object.keys(GAME_MODES).forEach(id=>document.getElementById("gm_"+id).onclick=()=>{GAME_MODE=id;if(next)next();else startSelect();});
+ document.getElementById("gmback").onclick=toMenu;
+}
+function settingsCard(){
+ const rows=[["up","UP / MOVE"],["down","DOWN / MOVE"],["left","LEFT / MOVE"],["right","RIGHT / MOVE"],["fire","SHOOT"],["parry","GUARD / PARRY"],["dash","DASH"],["special","SPECIAL"]];
+ show(`<div class="kicker">Settings</div><h2>Controls</h2><p>Click an action, then press the key you want. Changes save automatically.</p>
+ <div style="display:grid;grid-template-columns:1fr 1fr;gap:22px;margin-top:20px">${["p1","p2"].map((who,si)=>`<section style="border-top:1px solid var(--edge);padding-top:12px"><h3 style="font:600 12px ui-monospace;letter-spacing:.2em">${si?"PLAYER TWO":"PLAYER ONE"}</h3>${rows.map(([k,l])=>`<button class="diffBtn bindBtn" data-seat="${who}" data-key="${k}">${l}<span style="float:right;color:#ffd66b">${keyLabel(KEYBINDS[who][k])}</span></button>`).join("")}</section>`).join("")}</div>
+ <p class="hint" id="bindStatus"></p><button class="backBtn" id="setback">‹ BACK</button>`);
+ let waiting=null;
+ document.querySelectorAll(".bindBtn").forEach(b=>b.onclick=()=>{waiting=b;document.getElementById("bindStatus").textContent="PRESS A KEY…";});
+ const handler=e=>{if(!waiting)return;e.preventDefault();KEYBINDS[waiting.dataset.seat][waiting.dataset.key]=e.code;saveSettings();settingsCard();};
+ window.addEventListener("keydown",handler,{once:true,capture:true});
+ document.getElementById("setback").onclick=toMenu;
+}
+function shopCard(){
+ show(`<div class="kicker">Salt-coins</div><h2>Shop</h2><div class="coinTag">◆ ${PROGRESS.coins} salt-coins</div><p>Unlock fighters here. The character select still works too.</p>
+ <div class="modeGrid">${CHARS.map(c=>`<button class="modeBtn" id="shop_${c.id}"><div class="num">${isUnlocked(c)?"OWNED":"◆ "+UNLOCK_COST[c.id]}</div><div class="lbl" style="color:${c.color}">${c.name}</div><div class="desc">${c.title} — ${isUnlocked(c)?"ready to play":c.passive}</div></button>`).join("")}</div>
+ <button class="backBtn" id="shopback">‹ BACK</button>`);
+ CHARS.forEach(c=>document.getElementById("shop_"+c.id).onclick=()=>{if(!isUnlocked(c)&&tryUnlock(c))shopCard();});
+ document.getElementById("shopback").onclick=toMenu;
+}
 
 function isUnlocked(c){ return UNLOCK_COST[c.id] === 0 || PROGRESS.unlocked.includes(c.id); }
 function tryUnlock(c){
@@ -299,39 +330,6 @@ const ARENAS = [
             {x:420,y:284,w:120,h:32, void:true} ],
     spawns:[[120,480],[840,120]],
     pickups:[[840,480],[120,120]] },
-
-  { name:"Salt Stair",
-    walls:[ {x:200,y:160,w:160,h:28}, {x:600,y:412,w:160,h:28},
-            {x:120,y:420,w:28,h:140}, {x:812,y:40,w:28,h:140} ],
-    spawns:[[100,500],[860,100]],
-    pickups:[[480,150],[480,450]] },
-
-  { name:"The Ferry Crossing",
-    walls:[ {x:340,y:280,w:280,h:40, void:true},
-            {x:80,y:120,w:120,h:24}, {x:760,y:456,w:120,h:24},
-            {x:80,y:456,w:120,h:24}, {x:760,y:120,w:120,h:24} ],
-    spawns:[[120,300],[840,300]],
-    pickups:[[300,300],[660,300]] },
-
-  { name:"The Watchtower",
-    walls:[ {x:440,y:270,w:80,h:60},
-            {x:160,y:100,w:32,h:160}, {x:768,y:340,w:32,h:160},
-            {x:160,y:340,w:32,h:160}, {x:768,y:100,w:32,h:160} ],
-    spawns:[[100,300],[860,300]],
-    pickups:[[300,150],[660,450]] },
-
-  { name:"The Undertow",
-    walls:[ {x:300,y:60,w:40,h:140}, {x:620,y:400,w:40,h:140},
-            {x:300,y:400,w:40,h:140}, {x:620,y:60,w:40,h:140},
-            {x:460,y:280,w:40,h:40, void:true} ],
-    spawns:[[140,150],[820,450]],
-    pickups:[[140,450],[820,150]] },
-
-  { name:"Harbor Light",
-    walls:[ {x:60,y:270,w:100,h:60}, {x:800,y:270,w:100,h:60},
-            {x:430,y:130,w:100,h:28}, {x:430,y:442,w:100,h:28} ],
-    spawns:[[300,120],[660,480]],
-    pickups:[[300,480],[660,120]] },
 ];
 
 const ROUND_FLAVOR = [
@@ -362,31 +360,14 @@ addEventListener("keydown", e => {
 addEventListener("keyup", e => held.delete(e.code));
 addEventListener("blur", () => { held.clear(); edge.clear(); });
 
-/* Player one fires and guards with the mouse. The click targets the
-   canvas itself (movement/aim stays on WASD — this never adds free-look),
-   and the right-click context menu is suppressed so RMB is free to use
-   as a control everywhere on the page. */
-const MOUSE_CODE = { 0:"Mouse0", 2:"Mouse2" };
-addEventListener("contextmenu", e => e.preventDefault());
-addEventListener("mousedown", e => {
-  const code = MOUSE_CODE[e.button];
-  if (!code) return;
-  e.preventDefault();
-  held.add(code); edge.add(code);
-});
-addEventListener("mouseup", e => {
-  const code = MOUSE_CODE[e.button];
-  if (code) held.delete(code);
-});
-
 const hasHeld = k => Array.isArray(k) ? k.some(x => held.has(x)) : held.has(k);
 const hasEdge = k => Array.isArray(k) ? k.some(x => edge.has(x)) : edge.has(k);
 
 const SCHEMES = [
   { up:"KeyW", down:"KeyS", left:"KeyA", right:"KeyD",
-    fire:"Mouse0", parry:"Mouse2", dash:"KeyE", special:["KeyF","KeyR"] },
+    fire:"Space", parry:"KeyQ", dash:"KeyE", special:["KeyF","KeyR"] },
   { up:"ArrowUp", down:"ArrowDown", left:"ArrowLeft", right:"ArrowRight",
-    fire:"ShiftRight", parry:"Enter", dash:"Slash", special:["Semicolon","Numpad0"] },
+    fire:"Period", parry:"Comma", dash:"Slash", special:["Semicolon","ShiftRight","Numpad0"] },
 ];
 
 function blankInput(){
@@ -394,7 +375,7 @@ function blankInput(){
 }
 
 function readInput(schemeIndex){
-  const s = SCHEMES[schemeIndex], i = blankInput();
+  const s = currentSchemes()[schemeIndex], i = blankInput();
   if (hasHeld(s.left))  i.ax -= 1;
   if (hasHeld(s.right)) i.ax += 1;
   if (hasHeld(s.up))    i.ay -= 1;
@@ -409,7 +390,7 @@ function readInput(schemeIndex){
 }
 // Either player may advance a story card in local play.
 function anyConfirm(){
-  return edge.has("Space") || edge.has("Enter") || edge.has("Mouse0") || edge.has("ShiftRight");
+  return edge.has("Space") || edge.has("Enter") || edge.has("Period");
 }
 
 /* ============================================================
@@ -543,6 +524,7 @@ class Game {
     }
 
     this.time += dt;
+    const modeRoundTime = GAME_MODE==="tide" ? 18 : ROUND_TIME;
 
     for (let i = this.temps.length - 1; i >= 0; i--){
       this.temps[i].ttl -= dt;
@@ -555,7 +537,7 @@ class Game {
 
     if (!this.result){
       // The dark closes in so a stalemate cannot simply be waited out.
-      if (this.time > ROUND_TIME){
+      if (this.time > modeRoundTime){
         this.closeTimer += dt;
         if (this.closeTimer >= CLOSE_STEP){
           this.closeTimer -= CLOSE_STEP;
@@ -643,7 +625,7 @@ class Game {
 
   // Ammo caches scattered around the arena. Touch one at less-than-full
   // ammo to take a mote from it; it goes dark for a while and refills.
-  PICKUP_COOLDOWN = 9;
+  PICKUP_COOLDOWN = GAME_MODE==="frenzy" ? 2.5 : 5;
   stepPickups(dt){
     for (const pk of this.pickups){
       if (pk.cd > 0){ pk.cd = Math.max(0, pk.cd - dt); continue; }
@@ -1412,39 +1394,41 @@ function menuCard(){
        First to ${WINS_NEEDED} round wins takes the match, across ${ARENAS.length} arenas.
        Win matches against the CPU to earn coins and unlock the rest of the roster.</p>
     <div class="modeGrid">
-      <button class="modeBtn" id="m1"><span class="icon">🕹️</span><div>
-        <div class="num">1 · LOCAL</div>
+      <button class="modeBtn" id="m1"><div class="num">1 · LOCAL</div>
         <div class="lbl">Two players, one keyboard</div>
-        <div class="desc">Player one on WASD + mouse, player two on the arrows</div></div></button>
-      <button class="modeBtn" id="m4"><span class="icon">🤖</span><div>
-        <div class="num">4 · SOLO</div>
+        <div class="desc">Player one on WASD, player two on the arrow keys</div></button>
+      <button class="modeBtn" id="m4"><div class="num">4 · SOLO</div>
         <div class="lbl">Play against the CPU</div>
-        <div class="desc">Three difficulty tiers — and it pays out in coins</div></div></button>
-      <button class="modeBtn" id="m2"><span class="icon">🌐</span><div>
-        <div class="num">2 · ONLINE</div>
+        <div class="desc">Three difficulty tiers — and it pays out in coins</div></button>
+      <button class="modeBtn" id="m2"><div class="num">2 · ONLINE</div>
         <div class="lbl">Host a duel</div>
-        <div class="desc">Get an invite code to send a friend, no account needed</div></div></button>
-      <button class="modeBtn" id="m3"><span class="icon">🔑</span><div>
-        <div class="num">3 · ONLINE</div>
+        <div class="desc">Get an invite code to send a friend, no account needed</div></button>
+      <button class="modeBtn" id="m3"><div class="num">3 · ONLINE</div>
         <div class="lbl">Join with a code</div>
-        <div class="desc">Paste a code someone hosting sent you</div></div></button>
+        <div class="desc">Paste a code someone hosting sent you</div></button>
+      <button class="modeBtn" id="m5"><div class="num">5 · MODES</div>
+        <div class="lbl">Game modes</div><div class="desc">Classic, Sudden Death, Ammo Frenzy, Closing Tide</div></button>
+      <button class="modeBtn" id="m6"><div class="num">6 · SHOP</div>
+        <div class="lbl">Salt-coin shop</div><div class="desc">Unlock every keeper in one dedicated place</div></button>
+      <button class="modeBtn" id="m7"><div class="num">7 · SETTINGS</div>
+        <div class="lbl">Controls</div><div class="desc">Change shoot, dash, guard, movement and special keys</div></button>
     </div>
     <div class="rule"></div>
     <div class="keys">
       <section>
         <h3>Player one — left side</h3>
         <dl><dt>W A S D</dt><dd>move &amp; aim</dd>
-            <dt>Left Click</dt><dd>fire</dd>
-            <dt>Right Click</dt><dd>guard / parry</dd>
+            <dt>Space</dt><dd>fire</dd>
+            <dt>Q</dt><dd>guard / parry</dd>
             <dt>E</dt><dd>dash</dd>
             <dt>F</dt><dd>special</dd></dl>
       </section>
       <section>
         <h3>Player two — right side</h3>
         <dl><dt>&uarr; &darr; &larr; &rarr;</dt><dd>move &amp; aim</dd>
-            <dt>Right Shift</dt><dd>fire</dd>
-            <dt>Enter</dt><dd>guard / parry</dd>
-            <dt>?  slash</dt><dd>dash</dd>
+            <dt>. period</dt><dd>fire</dd>
+            <dt>, comma</dt><dd>guard / parry</dd>
+            <dt>/ slash</dt><dd>dash</dd>
             <dt>; semicolon</dt><dd>special</dd></dl>
       </section>
     </div>
@@ -1456,6 +1440,9 @@ function menuCard(){
   document.getElementById("m4").onclick = uiStartCPU;
   document.getElementById("m2").onclick = hostFlow;
   document.getElementById("m3").onclick = joinFlow;
+  document.getElementById("m5").onclick = ()=>modeCard();
+  document.getElementById("m6").onclick = shopCard;
+  document.getElementById("m7").onclick = settingsCard;
 }
 
 function difficultyCard(){
@@ -1490,7 +1477,7 @@ function beatCard(i, resultLine, names){
        around the arena — grab them to keep firing. Parry to catch a live shot and send
        it back, dash to close distance or duck out of the line.</p>
     <div class="rule"></div>
-    <p class="hint blink">Press <b>fire</b> to drop in — <kbd>Click</kbd>${netMode==="local"?` or <kbd>R.Shift</kbd>`:``}</p>
+    <p class="hint blink">Press <b>fire</b> to drop in — <kbd>Space</kbd>${netMode==="local"?` or <kbd>.</kbd>`:``}</p>
   `);
 }
 
@@ -1552,7 +1539,7 @@ function wireChannel(){
   ch.binaryType = "arraybuffer";
   ch.onopen = () => {
     netNote = "";
-    if (netMode === "host") startSelect();
+    if (netMode === "host") modeCard(startSelect);
     else show(`<div class="kicker">Connected</div><h2>Waiting for the host</h2>
                <p>Choosing keepers begins in a moment.</p>`);
   };
@@ -1671,7 +1658,7 @@ function remoteInput(){
 
 /* guest: sample the keyboard and bump a counter per press */
 function guestSend(){
-  const s = SCHEMES[0];
+  const s = currentSchemes()[0];
   let ax = 0, ay = 0;
   if (hasHeld(s.left)) ax -= 1; if (hasHeld(s.right)) ax += 1;
   if (hasHeld(s.up))   ay -= 1; if (hasHeld(s.down))  ay += 1;
@@ -1695,7 +1682,8 @@ function guestApply(s, u){
   for (let i=0;i<2;i++) if (wasAlive[i] && !game.players[i].alive)
     game.burst(game.players[i].x, game.players[i].y, game.players[i].char.color, 46, 260);
 
-  if (u.sel){ SELECT_STATE.cursor = u.sel.c; SELECT_STATE.locked = u.sel.l; }
+  if (u.mode) GAME_MODE=u.mode;
+   if (u.sel){ SELECT_STATE.cursor = u.sel.c; SELECT_STATE.locked = u.sel.l; }
 
   const key = JSON.stringify(u);
   if (key !== lastUiKey){
@@ -2048,7 +2036,7 @@ let cardIdx = 0, resultLine = "", epiWinner = 0;
 function seatNames(){ return game.players.map(p => p.char); }
 
 function uiPacket(){
-  return { st:state, i:cardIdx, r:resultLine, w:epiWinner,
+  return { st:state, mode:GAME_MODE, i:cardIdx, r:resultLine, w:epiWinner,
            sel:{ c:SELECT_STATE.cursor, l:SELECT_STATE.locked } };
 }
 
@@ -2119,7 +2107,7 @@ function endOfRound(){
     beginRound();
     return;
   }
-  if (game.scores[w] >= WINS_NEEDED){
+  if (game.scores[w] >= (GAME_MODE==="sudden" ? 1 : WINS_NEEDED)){
     epiWinner = w; state = ST.EPI;
     LAST_COINS_EARNED = 0;
     // Coins are earned only by a human beating the CPU — never for CPU vs CPU,
@@ -2152,15 +2140,6 @@ function tick(now){
 
   if (edge.has("Escape") && state !== ST.MENU){ netNote = ""; toMenu(); edge.clear(); return; }
 
-  // Behind every text overlay except the character-select screen (which
-  // already draws its own canvas scene) and an active match, keep the
-  // duel arena alive and lit — a game behind the glass, not a blank page.
-  if (state === ST.MENU || state === ST.DIFF || state === ST.NET ||
-      state === ST.CARD || state === ST.EPI){
-    game.stepSparks(dt);
-    render(game, { netLabel:"" });
-  }
-
   if (netMode === "guest"){
     guestSend();
     game.stepSparks(dt);
@@ -2181,6 +2160,9 @@ function tick(now){
       else if (edge.has("Digit2") || edge.has("Numpad2")) hostFlow();
       else if (edge.has("Digit3") || edge.has("Numpad3")) joinFlow();
       else if (edge.has("Digit4") || edge.has("Numpad4")){ state = ST.DIFF; difficultyCard(); }
+      else if (edge.has("Digit5") || edge.has("Numpad5")) modeCard();
+      else if (edge.has("Digit6") || edge.has("Numpad6")) shopCard();
+      else if (edge.has("Digit7") || edge.has("Numpad7")) settingsCard();
       break;
 
     case ST.DIFF: {
