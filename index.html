@@ -83,7 +83,7 @@
   .skinPreview:after{content:"";width:20px;height:20px;border-radius:50%;background:var(--sp-b);border:2px solid var(--sp-a);}
   @media (max-width:520px){.utilityRow{grid-template-columns:1fr;}}
 </style>
-<script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
+<script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/npm/peerjs@1.5.4/dist/peerjs.min.js'"></script>
 </head>
 <body>
 <div id="wrap">
@@ -1705,6 +1705,15 @@ let remoteSeq = { f:0, p:0, h:0, d:0, s:0, c:0 };
 let remotePkt = { a:[0,0], f:0, p:0, h:0, d:0, s:0, c:0 };
 let lastUiKey = "";
 let lobbyCode = "";
+let netConnectTimer = 0;
+
+const PEER_OPTIONS = {
+  debug:1,
+  config:{iceServers:[
+    {urls:["stun:stun.l.google.com:19302"]},
+    {urls:["stun:global.stun.twilio.com:3478"]}
+  ]}
+};
 
 function makeLobbyCode(){
   const chars="ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
@@ -1712,35 +1721,72 @@ function makeLobbyCode(){
   for(let i=0;i<6;i++) out += chars[Math.floor(Math.random()*chars.length)];
   return out;
 }
-function peerIdFromCode(code){ return "saltline-" + String(code||"").trim().toUpperCase().replace(/[^A-Z0-9]/g,""); }
+// The lobby code IS the PeerJS id. PeerJS allows alphanumeric IDs, so the
+// friend can enter exactly what the host sees — no hidden prefix to mismatch.
+function peerIdFromCode(code){ return String(code||"").trim().toUpperCase().replace(/[^A-Z0-9]/g,""); }
 function peerAvailable(){ return typeof Peer === "function"; }
-function closePeerOnly(){ try{ if(ch) ch.close(); }catch{} try{ if(pc) pc.close(); }catch{} try{ if(peer) peer.destroy(); }catch{} ch=null;pc=null;peer=null; }
+function clearNetTimer(){ if(netConnectTimer){clearTimeout(netConnectTimer);netConnectTimer=0;} }
+function closePeerOnly(){
+  clearNetTimer();
+  try{ if(ch) ch.close(); }catch{}
+  try{ if(pc) pc.close(); }catch{}
+  try{ if(peer && !peer.destroyed) peer.destroy(); }catch{}
+  ch=null; pc=null; peer=null;
+}
+function describeNetError(err){
+  const t=err?.type || err?.message || "unknown error";
+  const map={
+    "peer-unavailable":"that lobby does not exist or has expired",
+    "network":"could not reach the PeerJS lobby server",
+    "server-error":"the lobby server rejected the connection",
+    "socket-error":"the lobby server connection failed",
+    "ssl-unavailable":"secure online connection is unavailable in this browser",
+    "unavailable-id":"that lobby code is already in use",
+    "invalid-id":"invalid lobby code",
+    "webrtc":"WebRTC could not establish the peer connection"
+  };
+  return map[t] || t;
+}
+function markOnlineStatus(text){ setStat(text); }
 
 function wireChannel(){
   if(!ch) return;
+  clearNetTimer();
   const opened = () => {
+    clearNetTimer();
     netNote = "";
+    markOnlineStatus(netMode === "host" ? "LOBBY CONNECTED — choose the rules" : "CONNECTED — waiting for the host");
     if (netMode === "host") modeCard(startSelect);
     else show(`<div class="kicker">Connected</div><h2>You're in</h2>
-               <p>Waiting for the host to choose the rules. You will stay connected between matches.</p>`);
+               <p>Waiting for the host to choose the rules. You will stay connected between matches.</p>`, true);
   };
-  const closed = () => { if (netMode !== "local") { netNote = "the other keeper disconnected"; toMenu(); } };
-  const failed = () => { if (state === ST.NET) setStat("connection error — check the lobby code and try again"); };
-  const received = ev => {
-    let msg;
-    try { msg = typeof ev === "string" || typeof ev === "object" ? ev : JSON.parse(new TextDecoder().decode(ev));
+  const closed = () => {
+    clearNetTimer();
+    if (netMode !== "local") { netNote = "the other keeper disconnected"; toMenu(); }
+  };
+  const failed = err => {
+    clearNetTimer();
+    if (state === ST.NET) markOnlineStatus("connection error — " + describeNetError(err));
+  };
+  const received = data => {
+    let msg=data;
+    try{
       if(typeof msg === "string") msg=JSON.parse(msg);
-    } catch { return; }
-    if (netMode === "host" && msg?.i) remotePkt = msg.i;
-    else if (netMode === "guest" && msg?.s) guestApply(msg.s, msg.u);
+      else if(msg instanceof ArrayBuffer) msg=JSON.parse(new TextDecoder().decode(msg));
+    }catch{return;}
+    if(!msg || typeof msg !== "object") return;
+    if (netMode === "host" && msg.i) remotePkt = msg.i;
+    else if (netMode === "guest" && msg.s) guestApply(msg.s, msg.u);
   };
-  // PeerJS DataConnection API
-  if (typeof ch.on === "function") {
-    ch.on("open", opened); ch.on("close", closed); ch.on("error", failed); ch.on("data", received);
-    if (ch.open) setTimeout(opened,0);
-  } else {
-    ch.binaryType = "arraybuffer";
-    ch.onopen = opened; ch.onclose = closed; ch.onerror = failed; ch.onmessage = received;
+  if(typeof ch.on === "function"){
+    ch.on("open", opened);
+    ch.on("close", closed);
+    ch.on("error", failed);
+    ch.on("data", received);
+    if(ch.open) setTimeout(opened,0);
+  }else{
+    ch.binaryType="arraybuffer";
+    ch.onopen=opened; ch.onclose=closed; ch.onerror=failed; ch.onmessage=e=>received(e.data);
   }
 }
 
@@ -1748,7 +1794,7 @@ function netCardShell(title, body, status){
   show(`<div class="kicker">Online duel</div><h2>${title}</h2>${body}
         <p class="hint" id="netstat">${status||""}</p>
         <button class="backBtn" id="netback">‹ BACK  (Esc)</button>`, true);
-  const b = document.getElementById("netback"); if (b) b.onclick = toMenu;
+  const b=document.getElementById("netback"); if(b) b.onclick=toMenu;
 }
 const TA = `style="width:100%;height:90px;background:#0b131c;color:#cfe0f2;border:1px solid #24374b;
   border-radius:6px;padding:10px;font:600 20px/1.2 ui-monospace,monospace;resize:none;text-transform:uppercase;letter-spacing:.18em"`;
@@ -1756,67 +1802,93 @@ const BTNS = `style="margin:10px 8px 0 0;background:#132131;color:#e8eef7;border
   border-radius:6px;padding:9px 16px;font:600 12px/1 ui-monospace,monospace;letter-spacing:.12em;cursor:pointer"`;
 function setStat(t){ const el=document.getElementById("netstat"); if(el) el.textContent=t; }
 
-async function hostFlow(){
-  if(!peerAvailable()) return netCardShell("Online unavailable", `<p>The online library did not load. Check your internet connection and reload the page.</p>`, "PeerJS could not be loaded");
+function createPeer(id){
+  // Explicitly point at PeerJS Cloud so the same broker is used by host and joiner.
+  return id ? new Peer(id, PEER_OPTIONS) : new Peer(PEER_OPTIONS);
+}
+
+function startNetTimeout(message){
+  clearNetTimer();
+  netConnectTimer=setTimeout(()=>{
+    if(ch && ch.open) return;
+    markOnlineStatus(message);
+    try{ if(ch) ch.close(); }catch{}
+    ch=null;
+  },20000);
+}
+
+function hostFlow(){
+  if(!peerAvailable()) return netCardShell("Online unavailable", `<p>The online library did not load. Reload the page and try again.</p>`, "PeerJS could not be loaded");
+  closePeerOnly();
   netMode="host"; state=ST.NET; lobbyCode=makeLobbyCode();
   netCardShell("Hosting", `<p>Give your friend this <b>6-character lobby code</b>:</p>
     <textarea ${TA} id="mine" readonly>${lobbyCode}</textarea>
     <button ${BTNS} id="copy">COPY CODE</button>
-    <p style="margin-top:18px">Keep this page open. Your friend enters the code once, then both of you stay in the same lobby for rematches.</p>`, "creating lobby…");
-  try{
-    peer = new Peer(peerIdFromCode(lobbyCode), { debug:0 });
-    peer.on("open", id => setStat("LOBBY READY — waiting for your friend"));
-    peer.on("connection", conn => {
-      if(ch && ch.open){ try{conn.close();}catch{} return; }
-      ch=conn; pc=null; wireChannel();
-      setStat("friend connecting…");
-    });
-    peer.on("error", err => {
-      if(err && err.type === "unavailable-id"){
-        lobbyCode=makeLobbyCode();
-        try{peer.destroy();}catch{}
-        setStat("code collision — creating a new lobby…");
-        setTimeout(hostFlow,250);
-      } else setStat("lobby error — " + (err?.type || "try again"));
-    });
-  }catch(e){ setStat("could not create lobby"); }
-  document.getElementById("copy").onclick=()=>{
-    const t=document.getElementById("mine"); t.select();
-    navigator.clipboard?.writeText(t.value).then(()=>setStat("code copied"),()=>setStat("select and copy manually"));
+    <p style="margin-top:18px">Keep this page open. Your friend enters the code once, then both of you stay in the same lobby for rematches.</p>`, "connecting to lobby server…");
+  const copy=document.getElementById("copy");
+  if(copy) copy.onclick=()=>{
+    const t=document.getElementById("mine");
+    t.select();
+    if(navigator.clipboard?.writeText) navigator.clipboard.writeText(t.value).then(()=>setStat("CODE COPIED"),()=>setStat("SELECT THE CODE AND COPY IT"));
+    else setStat("SELECT THE CODE AND COPY IT");
   };
+  try{
+    peer=createPeer(peerIdFromCode(lobbyCode));
+    peer.on("open",()=>markOnlineStatus("LOBBY READY — waiting for your friend"));
+    peer.on("connection",conn=>{
+      if(ch && ch.open){ try{conn.close();}catch{} return; }
+      ch=conn;
+      wireChannel();
+      markOnlineStatus("FRIEND CONNECTING…");
+    });
+    peer.on("disconnected",()=>{ if(netMode==="host" && !peer.destroyed) { try{peer.reconnect();}catch{} } });
+    peer.on("error",err=>{
+      if(err?.type === "unavailable-id"){
+        // Extremely rare, but never leave the user stuck with a dead code.
+        try{peer.destroy();}catch{}
+        setTimeout(hostFlow,150);
+        return;
+      }
+      markOnlineStatus("LOBBY ERROR — " + describeNetError(err));
+    });
+  }catch(e){ markOnlineStatus("COULD NOT CREATE LOBBY — " + (e?.message||"try again")); }
 }
 
-async function joinFlow(){
-  if(!peerAvailable()) return netCardShell("Online unavailable", `<p>The online library did not load. Check your internet connection and reload the page.</p>`, "PeerJS could not be loaded");
+function joinFlow(){
+  if(!peerAvailable()) return netCardShell("Online unavailable", `<p>The online library did not load. Reload the page and try again.</p>`, "PeerJS could not be loaded");
+  closePeerOnly();
   netMode="guest"; state=ST.NET;
   netCardShell("Join lobby", `<p>Enter the host's <b>6-character lobby code</b>:</p>
     <input ${TA.replace('height:90px','height:56px')} id="code" maxlength="6" placeholder="ABC123" autocomplete="off" spellcheck="false">
     <button ${BTNS} id="go">JOIN LOBBY</button>`, "");
-  document.getElementById("go").onclick=async()=>{
-    const code=document.getElementById("code").value.trim().toUpperCase();
-    if(!/^[A-Z0-9]{6}$/.test(code)) return setStat("enter the full 6-character code");
-    setStat("connecting to lobby…");
+  const input=document.getElementById("code"), go=document.getElementById("go");
+  input.focus();
+  input.oninput=()=>{ input.value=input.value.toUpperCase().replace(/[^A-Z0-9]/g,"").slice(0,6); };
+  go.onclick=()=>{
+    const code=peerIdFromCode(input.value);
+    if(code.length!==6) return setStat("ENTER THE FULL 6-CHARACTER CODE");
+    setStat("CONNECTING TO LOBBY…");
     try{
-      peer=new Peer(undefined,{debug:0});
+      peer=createPeer();
       peer.on("open",()=>{
-        ch=peer.connect(peerIdFromCode(code),{reliable:true,serialization:"json"});
-        wireChannel();
-        const wait=setInterval(()=>{
-          if(ch && ch.open){ clearInterval(wait); setStat("CONNECTED — waiting for the host"); }
-        },100);
-        setTimeout(()=>{clearInterval(wait);if(!(ch&&ch.open))setStat("could not reach that lobby — check the code and host page");},12000);
+        try{
+          ch=peer.connect(code,{label:"saltline-duel",reliable:true,serialization:"json"});
+          wireChannel();
+          startNetTimeout("COULD NOT REACH THAT LOBBY — CHECK THE CODE AND MAKE SURE THE HOST IS STILL OPEN");
+        }catch(e){ markOnlineStatus("COULD NOT CONNECT — " + (e?.message||"try again")); }
       });
-      peer.on("error",err=>setStat("could not join lobby — " + (err?.type || "check the code")));
-    }catch(e){ setStat("could not join lobby"); }
+      peer.on("disconnected",()=>{ if(netMode==="guest" && !peer.destroyed) { try{peer.reconnect();}catch{} } });
+      peer.on("error",err=>markOnlineStatus("COULD NOT JOIN — " + describeNetError(err)));
+    }catch(e){ markOnlineStatus("COULD NOT JOIN LOBBY — " + (e?.message||"try again")); }
   };
 }
 
 function netTeardown(){
   closePeerOnly(); netMode="local";
   localSeq={f:0,p:0,h:0,d:0,s:0,c:0}; remoteSeq={f:0,p:0,h:0,d:0,s:0,c:0};
-  remotePkt={a:[0,0],f:0,p:0,h:0,d:0,s:0,c:0,skin:"default"}; lobbyCode="";
+  remotePkt={a:[0,0],f:0,p:0,h:0,d:0,s:0,c:0}; lobbyCode="";
 }
-function send(o){ if(ch && ch.open){ try{ch.send(o);}catch{} } }
+function send(o){ if(ch && ch.open){ try{ch.send(o);return true;}catch{} } return false; }
 
 function remoteInput(){
   const i=blankInput(); i.ax=remotePkt.a[0]; i.ay=remotePkt.a[1];
