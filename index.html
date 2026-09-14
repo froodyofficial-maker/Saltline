@@ -80,6 +80,7 @@
   .utilityBtn:hover{border-color:#4a6a8f;background:#101a26;color:var(--ink);}
   @media (max-width:520px){.utilityRow{grid-template-columns:1fr;}}
 </style>
+<script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
 </head>
 <body>
 <div id="wrap">
@@ -199,7 +200,7 @@ CHARS.forEach(c => c.st = Object.assign({}, BASE, c.stats));
    Ines and Cato are free. Everyone else is bought with salt-coins,
    earned by beating the CPU. */
 const UNLOCK_COST = { ines:0, cato:0, meran:120, odall:150, silt:150, vane:180, keel:180, auger:220 };
-const CPU_WIN_COINS = [40, 70, 110];     // by CPU_LEVELS index: Apprentice, Keeper, Warden
+const CPU_WIN_COINS = [40, 55, 70, 110, 160];     // Apprentice, Scout, Keeper, Warden, Harbinger
 
 const PROGRESS_KEY = "saltline_progress_v1";
 const FREE_MAP_COUNT = 5;
@@ -258,19 +259,33 @@ function modeCard(next){
  Object.keys(GAME_MODES).forEach(id=>document.getElementById("gm_"+id).onclick=()=>{GAME_MODE=id;if(next)next();else startSelect();});
  document.getElementById("gmback").onclick=toMenu;
 }
+let BINDING = null;
+function setBinding(seat,key,code){
+  KEYBINDS[seat][key]=code;
+  saveSettings();
+  BINDING=null;
+  settingsCard();
+}
 function settingsCard(){
  const rows=[["up","UP / MOVE"],["down","DOWN / MOVE"],["left","LEFT / MOVE"],["right","RIGHT / MOVE"],["fire","SHOOT"],["parry","GUARD / PARRY"],["shield","SHIELD"],["dash","DASH"],["special","SPECIAL"]];
- show(`<div class="kicker">Settings</div><h2>Controls</h2><p>Click an action, then press the key you want. Changes save automatically.</p>
- <div style="display:grid;grid-template-columns:1fr 1fr;gap:22px;margin-top:20px">${["p1","p2"].map((who,si)=>`<section style="border-top:1px solid var(--edge);padding-top:12px"><h3 style="font:600 12px ui-monospace;letter-spacing:.2em">${si?"PLAYER TWO":"PLAYER ONE"}</h3>${rows.map(([k,l])=>`<button class="diffBtn bindBtn" data-seat="${who}" data-key="${k}">${l}<span style="float:right;color:#ffd66b">${keyLabel(KEYBINDS[who][k])}</span></button>`).join("")}</section>`).join("")}</div>
- <p class="hint" id="bindStatus"></p><button class="backBtn" id="setback">‹ BACK</button>`, true);
- let waiting=null;
- document.querySelectorAll(".bindBtn").forEach(b=>b.onclick=()=>{waiting=b;document.getElementById("bindStatus").textContent="PRESS A KEY…";});
- const keyHandler=e=>{if(!waiting)return;e.preventDefault();KEYBINDS[waiting.dataset.seat][waiting.dataset.key]=e.code;saveSettings();settingsCard();};
- const mouseHandler=e=>{if(!waiting || e.button>4)return;e.preventDefault();e.stopPropagation();KEYBINDS[waiting.dataset.seat][waiting.dataset.key]="Mouse"+e.button;saveSettings();settingsCard();};
- window.addEventListener("keydown",keyHandler,{once:true,capture:true});
- window.addEventListener("mousedown",mouseHandler,{once:true,capture:true});
- document.getElementById("setback").onclick=toMenu;
+ show(`<div class="kicker">Settings</div><h2>Controls</h2><p>Choose an action, then press a keyboard key <b>or click one of the mouse buttons below</b>. Changes save automatically.</p>
+ <div style="display:grid;grid-template-columns:1fr 1fr;gap:22px;margin-top:20px">${["p1","p2"].map((who,si)=>`<section style="border-top:1px solid var(--edge);padding-top:12px"><h3 style="font:600 12px ui-monospace;letter-spacing:.2em">${si?"PLAYER TWO":"PLAYER ONE"}</h3>${rows.map(([k,l])=>`<button class="diffBtn bindBtn" data-seat="${who}" data-key="${k}">${l}<span style="float:right;color:#ffd66b">${keyLabel(KEYBINDS[who][k])}</span></button>`).join("")}
+ <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-top:8px">${[0,1,2,3,4].map(b=>`<button class="utilityBtn mouseChoice" data-seat="${who}" data-button="${b}">${keyLabel("Mouse"+b)}</button>`).join("")}</div></section>`).join("")}</div>
+ <p class="hint" id="bindStatus">${BINDING?`SETTING ${BINDING.key.toUpperCase()} — press a key or click a mouse button`:"Click SHOOT / SHIELD / SPECIAL etc. to change it."}</p><button class="backBtn" id="setback">‹ BACK</button>`, true);
+ document.querySelectorAll(".bindBtn").forEach(b=>b.onclick=()=>{BINDING={seat:b.dataset.seat,key:b.dataset.key};document.getElementById("bindStatus").textContent=`SETTING ${b.textContent.split("\n")[0].trim()} — press a key or click a mouse button`;});
+ document.querySelectorAll(".mouseChoice").forEach(b=>b.onclick=()=>{
+   if (!BINDING){ document.getElementById("bindStatus").textContent="First click an action such as SHOOT, then choose a mouse button."; return; }
+   setBinding(b.dataset.seat,BINDING.key,"Mouse"+b.dataset.button);
+ });
+ document.getElementById("setback").onclick=()=>{BINDING=null;toMenu();};
 }
+// A single global keyboard listener handles rebinding. This avoids stacked once-listeners
+// and makes rebinding reliable after opening Settings repeatedly.
+addEventListener("keydown", e=>{
+  if (!BINDING || typing(e)) return;
+  e.preventDefault(); e.stopPropagation();
+  setBinding(BINDING.seat,BINDING.key,e.code);
+}, true);
 function shopCard(){
  show(`<div class="kicker">Salt-coins</div><h2>Shop</h2><div class="coinTag">◆ ${PROGRESS.coins} salt-coins</div>
  <p>Unlock fighters and maps with coins earned from CPU victories. The first ${FREE_MAP_COUNT} maps are always free and stay in the standard rotation.</p>
@@ -451,7 +466,7 @@ function readInput(schemeIndex){
 }
 // Either player may advance a story card in local play.
 function anyConfirm(){
-  return edge.has("Space") || edge.has("Enter") || edge.has("Period");
+  return hasEdge(KEYBINDS.p1.fire) || hasEdge(KEYBINDS.p2.fire) || edge.has("Enter");
 }
 
 /* ============================================================
@@ -496,15 +511,15 @@ class Player {
     this.fx = x < W/2 ? 1 : -1; this.fy = 0;   // facing, unit vector
     this.alive = true;
     this.ammo = this.st.ammo; this.reloads = [];
-    this.fireCd = 0; this.parryCd = 0; this.parryT = 0;
-    this.shieldCd = 0; this.shieldT = 0;
+    this.fireCd = 0; this.fireBuffer = 0; this.parryCd = 0; this.parryT = 0;
+    this.shieldCd = 0; this.shieldT = 0; this.shieldBuffer = 0;
     this.dashCd = 0; this.dashT = 0;
-    this.flash = 0; this.charge = 0; this.ghost = 0; this.burstT = 0;
+    this.flash = 0; this.charge = 0; this.specialCd = 0; this.ghost = 0; this.burstT = 0;
     this.primed = false;                        // Meran's prism is loaded
     this.hist = [];
   }
   get facing(){ return Math.atan2(this.fy, this.fx); }
-  get ready(){ return this.charge >= CHG_FULL; }
+  get ready(){ return this.specialCd <= 0; }
   addCharge(n){ this.charge = Math.min(CHG_FULL, this.charge + n); }
 }
 
@@ -624,15 +639,20 @@ class Game {
     if (!p.alive) return;
     const st = p.st;
     p.fireCd  = Math.max(0, p.fireCd  - dt);
+    p.fireBuffer = Math.max(0, p.fireBuffer - dt);
+    if (inp.fire) p.fireBuffer = 0.14;
     p.parryCd = Math.max(0, p.parryCd - dt);
     p.shieldCd = Math.max(0, p.shieldCd - dt);
     p.shieldT = Math.max(0, p.shieldT - dt);
+    p.shieldBuffer = Math.max(0, p.shieldBuffer - dt);
+    if (inp.shield) p.shieldBuffer = 0.16;
     p.dashCd  = Math.max(0, p.dashCd  - dt);
     p.parryT  = Math.max(0, p.parryT  - dt);
     p.dashT   = Math.max(0, p.dashT   - dt);
     p.flash   = Math.max(0, p.flash   - dt);
     p.ghost   = Math.max(0, p.ghost   - dt);
     p.burstT  = Math.max(0, p.burstT  - dt);
+    p.specialCd = Math.max(0, p.specialCd - dt);
 
     p.hist.push(p.x, p.y);
     if (p.hist.length > EBB_FRAMES*2) p.hist.splice(0, p.hist.length - EBB_FRAMES*2);
@@ -649,7 +669,7 @@ class Game {
       p.fx = ax; p.fy = ay;                 // aim is welded to movement: no free-look
     }
 
-    if (inp.special && p.ready){ p.charge = 0; p.burstT = 0.4; this.useSpecial(p); }
+    if (inp.special && p.ready && p.ghost <= 0){ p.specialCd = 6.0; p.burstT = 0.4; this.useSpecial(p); }
 
     if (inp.dash && p.dashCd <= 0){
       p.vx = p.fx * st.dashSpeed; p.vy = p.fy * st.dashSpeed;
@@ -658,10 +678,12 @@ class Game {
     if (inp.parry && p.parryCd <= 0 && p.ghost <= 0){
       p.parryT = st.parryTime; p.parryCd = st.parryCd;
     }
-    if (inp.shield && p.shieldCd <= 0 && p.ghost <= 0){
+    if (p.shieldBuffer > 0 && p.shieldCd <= 0 && p.ghost <= 0){
+      p.shieldBuffer = 0;
       p.shieldT = 0.5; p.shieldCd = 3.0;
     }
-    if (inp.fire && p.fireCd <= 0 && p.ammo > 0 && p.ghost <= 0){
+    if ((inp.fire || p.fireBuffer > 0) && p.fireCd <= 0 && p.ammo > 0 && p.ghost <= 0){
+      p.fireBuffer = 0;
       p.ammo--; p.fireCd = st.fireCd;
       const mo = this.spawnMote(p, 0);
       if (p.primed){ mo.split = true; p.primed = false; }
@@ -722,7 +744,7 @@ class Game {
   /* ---------- the specials ---------- */
   useSpecial(p){
     const st = p.st;
-    this.burst(p.x, p.y, p.char.color, 26, 220);
+    this.burst(p.x, p.y, p.char.color, 34, 260);
     switch (p.char.id){
 
       case "ines":                       // SECOND WICK — three at once, free of ammo
@@ -958,7 +980,7 @@ class Game {
         Math.round(p.parryCd*100)/100, Math.round(p.flash*100)/100,
         Math.round(p.shieldT*100)/100, Math.round(p.shieldCd*100)/100,
         Math.round(p.charge), Math.round(p.ghost*100)/100,
-        p.primed?1:0, Math.round(p.burstT*100)/100 ]),
+        p.primed?1:0, Math.round(p.burstT*100)/100, Math.round(p.specialCd*100)/100 ]),
       m:this.motes.map(m => [
         Math.round(m.x*10)/10, Math.round(m.y*10)/10,
         Math.round(m.vx), Math.round(m.vy), m.owner, m.armed?1:0, m.radius ]),
@@ -985,7 +1007,7 @@ class Game {
       p.x=a[0]; p.y=a[1]; p.fx=a[2]; p.fy=a[3]; p.alive=!!a[4];
       p.ammo=a[5]; p.parryT=a[6]; p.dashCd=a[7]; p.parryCd=a[8]; p.flash=a[9];
       p.shieldT=a[10]||0; p.shieldCd=a[11]||0;
-      p.charge=a[12]; p.ghost=a[13]; p.primed=!!a[14]; p.burstT=a[15];
+      p.charge=a[12]; p.ghost=a[13]; p.primed=!!a[14]; p.burstT=a[15]; p.specialCd=a[16]||0;
     });
     this.temps = s.w.map(t => ({x:t[0], y:t[1], w:t[2], h:t[3], void:!!t[4], ttl:t[5]}));
     this.rings = s.g.map(r => ({x:r[0], y:r[1], t:r[2], life:r[3]}));
@@ -1300,11 +1322,11 @@ function drawHUD(g, ui){
     bar(bx, 80, 92, 3, 1 - p.parryCd/p.st.parryCd, "rgba(255,255,255,.65)");
     bar(bx, 85, 92, 3, 1 - p.shieldCd/3, p.shieldT > 0 ? p.char.color : "rgba(255,255,255,.35)");
     bar(bx, 87, 92, 3, 1 - p.dashCd/p.st.dashCd,  col);
-    bar(bx, 96, 92, 5, p.charge/CHG_FULL, p.ready ? "#ffffff" : "rgba(255,255,255,.45)");
+    bar(bx, 96, 92, 5, 1 - p.specialCd/6, p.ready ? "#ffffff" : "rgba(255,255,255,.45)");
 
     ctx.font = "600 9px ui-monospace,SFMono-Regular,Menlo,monospace";
     ctx.fillStyle = p.ready ? "#ffffff" : "rgba(200,215,235,.35)";
-    ctx.fillText(p.ready ? p.char.special + " READY" : p.char.special, right ? x : x, 106);
+    ctx.fillText(p.ready ? p.char.special + " READY" : p.char.special + " " + p.specialCd.toFixed(1) + "s", right ? x : x, 106);
     ctx.font = "600 12px ui-monospace,SFMono-Regular,Menlo,monospace";
   }
 
@@ -1472,7 +1494,7 @@ function menuCard(){
         <div class="desc">Player one on WASD, player two on the arrow keys</div></button>
       <button class="modeBtn" id="m4"><div class="num">4 · SOLO</div>
         <div class="lbl">Play against the CPU</div>
-        <div class="desc">Three difficulty tiers — and it pays out in coins</div></button>
+        <div class="desc">Five difficulty tiers — and it pays out in coins</div></button>
       <button class="modeBtn" id="m2"><div class="num">2 · ONLINE</div>
         <div class="lbl">Host a duel</div>
         <div class="desc">Get an invite code to send a friend, no account needed</div></button>
@@ -1528,13 +1550,17 @@ function difficultyCard(){
        learned, and then beaten. Winning a match pays out salt-coins toward unlocking fighters.</p>
     <div class="rule"></div>
     <button class="diffBtn" id="d0"><b>1 · Apprentice</b> &nbsp;—&nbsp; slow to see it coming, rarely guards &nbsp;·&nbsp; <span style="color:#ffd66b">+${CPU_WIN_COINS[0]} coins</span></button>
-    <button class="diffBtn" id="d1"><b>2 · Keeper</b> &nbsp;—&nbsp; banks a wall, guards about half of what it should &nbsp;·&nbsp; <span style="color:#ffd66b">+${CPU_WIN_COINS[1]} coins</span></button>
-    <button class="diffBtn" id="d2"><b>3 · Warden</b> &nbsp;—&nbsp; banks two walls, guards almost everything, never hesitates &nbsp;·&nbsp; <span style="color:#ffd66b">+${CPU_WIN_COINS[2]} coins</span></button>
+    <button class="diffBtn" id="d1"><b>2 · Scout</b> &nbsp;—&nbsp; a clear step up from Apprentice, with quicker reactions &nbsp;·&nbsp; <span style="color:#ffd66b">+${CPU_WIN_COINS[1]} coins</span></button>
+    <button class="diffBtn" id="d2"><b>3 · Keeper</b> &nbsp;—&nbsp; banks a wall, guards about half of what it should &nbsp;·&nbsp; <span style="color:#ffd66b">+${CPU_WIN_COINS[2]} coins</span></button>
+    <button class="diffBtn" id="d3"><b>4 · Warden</b> &nbsp;—&nbsp; banks two walls, guards almost everything, never hesitates &nbsp;·&nbsp; <span style="color:#ffd66b">+${CPU_WIN_COINS[3]} coins</span></button>
+    <button class="diffBtn" id="d4"><b>5 · Harbinger</b> &nbsp;—&nbsp; brutal reactions, three-bank shots, near-perfect defense &nbsp;·&nbsp; <span style="color:#ffd66b">+${CPU_WIN_COINS[4]} coins</span></button>
     <button class="backBtn" id="dback">‹ BACK</button>
   `, true);
   document.getElementById("d0").onclick = () => uiPickDiff(0);
   document.getElementById("d1").onclick = () => uiPickDiff(1);
   document.getElementById("d2").onclick = () => uiPickDiff(2);
+  document.getElementById("d3").onclick = () => uiPickDiff(3);
+  document.getElementById("d4").onclick = () => uiPickDiff(4);
   document.getElementById("dback").onclick = toMenu;
 }
 
@@ -1548,7 +1574,8 @@ function beatCard(i, resultLine, names){
         <span style="color:${p2.color}">${p2.name}</span></h2>
     <p>First to ${WINS_NEEDED} round wins takes the match. Ammo pickups are scattered
        around the arena — grab them to keep firing. Parry to catch a live shot and send
-       it back, shield a hit for 0.5s (3s cooldown), dash to close distance or duck out of the line.</p>
+       it back, shield a hit for 0.5s (3s cooldown), dash to close distance or duck out of the line.
+       Every keeper has a unique <b>special ability</b>, ready at the start of each round and back after a 6s cooldown.</p>
     <div class="rule"></div>
     <p class="hint blink">Press <b>fire</b> to drop in — <kbd>Space</kbd>${netMode==="local"?` or <kbd>.</kbd>`:``}</p>
   `);
@@ -1570,204 +1597,159 @@ function epilogueCard(winner, scores, names){
 }
 
 /* ============================================================
-   NETWORK  —  serverless WebRTC. One player hosts and owns the
-   simulation; the other sends input and renders what it is told.
-   Signalling is done by copy-pasting one code each way, so the
-   game needs no backend of any kind.
+   NETWORK — PeerJS signalling + WebRTC data channel.
+   The host gets a short 6-character room code. The connection itself
+   persists for the whole lobby, so matches can be replayed without
+   exchanging another code.
    ============================================================ */
 let netMode = "local";                 // "local" | "host" | "guest"
-let pc = null, ch = null, netNote = "";
-let localSeq  = { f:0, p:0, h:0, d:0, s:0, c:0 };   // guest: presses, as counters
-let remoteSeq = { f:0, p:0, h:0, d:0, s:0, c:0 };   // host: presses already applied
+let pc = null, ch = null, peer = null, netNote = "";
+let localSeq  = { f:0, p:0, h:0, d:0, s:0, c:0 };
+let remoteSeq = { f:0, p:0, h:0, d:0, s:0, c:0 };
 let remotePkt = { a:[0,0], f:0, p:0, h:0, d:0, s:0, c:0 };
 let lastUiKey = "";
+let lobbyCode = "";
 
-const enc = o => btoa(String.fromCharCode(...new TextEncoder().encode(JSON.stringify(o)))).replace(/=+$/,"");
-const dec = s => JSON.parse(new TextDecoder().decode(
-  Uint8Array.from(atob(s.trim().replace(/\s+/g,"")), c => c.charCodeAt(0))));
-
-function newPC(){
-  const p = new RTCPeerConnection({ iceServers:[
-    { urls:["stun:stun.l.google.com:19302","stun:global.stun.twilio.com:3478"] } ] });
-  p.onconnectionstatechange = () => {
-    if (p.connectionState === "failed"){
-      netNote = "connection lost";
-      if (state !== ST.MENU) toMenu();
-    }
-  };
-  return p;
+function makeLobbyCode(){
+  const chars="ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+  let out="";
+  for(let i=0;i<6;i++) out += chars[Math.floor(Math.random()*chars.length)];
+  return out;
 }
-
-function iceComplete(p){
-  if (p.iceGatheringState === "complete") return Promise.resolve();
-  return new Promise(res => {
-    const done = () => { p.removeEventListener("icegatheringstatechange", check); res(); };
-    const check = () => { if (p.iceGatheringState === "complete") done(); };
-    p.addEventListener("icegatheringstatechange", check);
-    setTimeout(done, 4000);            // good enough without trickle
-  });
-}
+function peerIdFromCode(code){ return "saltline-" + String(code||"").trim().toUpperCase().replace(/[^A-Z0-9]/g,""); }
+function peerAvailable(){ return typeof Peer === "function"; }
+function closePeerOnly(){ try{ if(ch) ch.close(); }catch{} try{ if(pc) pc.close(); }catch{} try{ if(peer) peer.destroy(); }catch{} ch=null;pc=null;peer=null; }
 
 function wireChannel(){
-  ch.binaryType = "arraybuffer";
-  ch.onopen = () => {
+  if(!ch) return;
+  const opened = () => {
     netNote = "";
     if (netMode === "host") modeCard(startSelect);
-    else show(`<div class="kicker">Connected</div><h2>Waiting for the host</h2>
-               <p>Choosing keepers begins in a moment.</p>`);
+    else show(`<div class="kicker">Connected</div><h2>You're in</h2>
+               <p>Waiting for the host to choose the rules. You will stay connected between matches.</p>`);
   };
-  ch.onclose = () => { netNote = "the other keeper disconnected"; toMenu(); };
-  ch.onmessage = ev => {
-    let msg; try { msg = JSON.parse(ev.data); } catch { return; }
-    if (netMode === "host" && msg.i){ remotePkt = msg.i; }
-    else if (netMode === "guest" && msg.s){ guestApply(msg.s, msg.u); }
+  const closed = () => { if (netMode !== "local") { netNote = "the other keeper disconnected"; toMenu(); } };
+  const failed = () => { if (state === ST.NET) setStat("connection error — check the lobby code and try again"); };
+  const received = ev => {
+    let msg;
+    try { msg = typeof ev === "string" || typeof ev === "object" ? ev : JSON.parse(new TextDecoder().decode(ev));
+      if(typeof msg === "string") msg=JSON.parse(msg);
+    } catch { return; }
+    if (netMode === "host" && msg?.i) remotePkt = msg.i;
+    else if (netMode === "guest" && msg?.s) guestApply(msg.s, msg.u);
   };
+  // PeerJS DataConnection API
+  if (typeof ch.on === "function") {
+    ch.on("open", opened); ch.on("close", closed); ch.on("error", failed); ch.on("data", received);
+    if (ch.open) setTimeout(opened,0);
+  } else {
+    ch.binaryType = "arraybuffer";
+    ch.onopen = opened; ch.onclose = closed; ch.onerror = failed; ch.onmessage = received;
+  }
 }
 
 function netCardShell(title, body, status){
   show(`<div class="kicker">Online duel</div><h2>${title}</h2>${body}
         <p class="hint" id="netstat">${status||""}</p>
-        <button class="backBtn" id="netback">‹ BACK  (Esc)</button>`);
-  const b = document.getElementById("netback");
-  if (b) b.onclick = toMenu;
+        <button class="backBtn" id="netback">‹ BACK  (Esc)</button>`, true);
+  const b = document.getElementById("netback"); if (b) b.onclick = toMenu;
 }
-const TA = `style="width:100%;height:110px;background:#0b131c;color:#cfe0f2;border:1px solid #24374b;
-  border-radius:6px;padding:10px;font:500 11px/1.45 ui-monospace,monospace;resize:vertical"`;
+const TA = `style="width:100%;height:90px;background:#0b131c;color:#cfe0f2;border:1px solid #24374b;
+  border-radius:6px;padding:10px;font:600 20px/1.2 ui-monospace,monospace;resize:none;text-transform:uppercase;letter-spacing:.18em"`;
 const BTNS = `style="margin:10px 8px 0 0;background:#132131;color:#e8eef7;border:1px solid #2b3a4d;
   border-radius:6px;padding:9px 16px;font:600 12px/1 ui-monospace,monospace;letter-spacing:.12em;cursor:pointer"`;
-
-function setStat(t){ const el = document.getElementById("netstat"); if (el) el.textContent = t; }
+function setStat(t){ const el=document.getElementById("netstat"); if(el) el.textContent=t; }
 
 async function hostFlow(){
-  netMode = "host"; state = ST.NET;
-  netCardShell("Hosting", `<p>Making your invitation code…</p>`, "gathering network routes");
-  pc = newPC();
-  ch = pc.createDataChannel("duel", { ordered:false, maxRetransmits:0 });
-  wireChannel();
-  await pc.setLocalDescription(await pc.createOffer());
-  await iceComplete(pc);
-  if (netMode !== "host") return;
-  const code = enc({ t:pc.localDescription.type, s:pc.localDescription.sdp });
-
-  netCardShell("Hosting — you take the left seat", `
-    <p><b>1.</b> Send this invitation code to the other keeper:</p>
-    <textarea ${TA} id="mine" readonly>${code}</textarea>
+  if(!peerAvailable()) return netCardShell("Online unavailable", `<p>The online library did not load. Check your internet connection and reload the page.</p>`, "PeerJS could not be loaded");
+  netMode="host"; state=ST.NET; lobbyCode=makeLobbyCode();
+  netCardShell("Hosting", `<p>Give your friend this <b>6-character lobby code</b>:</p>
+    <textarea ${TA} id="mine" readonly>${lobbyCode}</textarea>
     <button ${BTNS} id="copy">COPY CODE</button>
-    <p style="margin-top:18px"><b>2.</b> Paste the reply code they send back:</p>
-    <textarea ${TA} id="theirs" placeholder="their reply code"></textarea>
-    <button ${BTNS} id="go">CONNECT</button>`, "waiting for their reply");
-
-  document.getElementById("copy").onclick = () => {
-    const t = document.getElementById("mine"); t.select();
-    navigator.clipboard?.writeText(t.value).then(()=>setStat("code copied"), ()=>setStat("select and copy manually"));
-  };
-  document.getElementById("go").onclick = async () => {
-    try {
-      const a = dec(document.getElementById("theirs").value);
-      await pc.setRemoteDescription({ type:a.t, sdp:a.s });
-      setStat("connecting…");
-    } catch(e){ setStat("that code could not be read — check it was copied whole"); }
+    <p style="margin-top:18px">Keep this page open. Your friend enters the code once, then both of you stay in the same lobby for rematches.</p>`, "creating lobby…");
+  try{
+    peer = new Peer(peerIdFromCode(lobbyCode), { debug:0 });
+    peer.on("open", id => setStat("LOBBY READY — waiting for your friend"));
+    peer.on("connection", conn => {
+      if(ch && ch.open){ try{conn.close();}catch{} return; }
+      ch=conn; pc=null; wireChannel();
+      setStat("friend connecting…");
+    });
+    peer.on("error", err => {
+      if(err && err.type === "unavailable-id"){
+        lobbyCode=makeLobbyCode();
+        try{peer.destroy();}catch{}
+        setStat("code collision — creating a new lobby…");
+        setTimeout(hostFlow,250);
+      } else setStat("lobby error — " + (err?.type || "try again"));
+    });
+  }catch(e){ setStat("could not create lobby"); }
+  document.getElementById("copy").onclick=()=>{
+    const t=document.getElementById("mine"); t.select();
+    navigator.clipboard?.writeText(t.value).then(()=>setStat("code copied"),()=>setStat("select and copy manually"));
   };
 }
 
 async function joinFlow(){
-  netMode = "guest"; state = ST.NET;
-  netCardShell("Joining — you take the right seat", `
-    <p><b>1.</b> Paste the host's invitation code:</p>
-    <textarea ${TA} id="theirs" placeholder="their invitation code"></textarea>
-    <button ${BTNS} id="go">GENERATE REPLY</button>`, "");
-
-  pc = newPC();
-  pc.ondatachannel = ev => { ch = ev.channel; wireChannel(); };
-
-  document.getElementById("go").onclick = async () => {
-    let offer;
-    try { offer = dec(document.getElementById("theirs").value); }
-    catch(e){ return setStat("that code could not be read — check it was copied whole"); }
-    setStat("building reply…");
-    await pc.setRemoteDescription({ type:offer.t, sdp:offer.s });
-    await pc.setLocalDescription(await pc.createAnswer());
-    await iceComplete(pc);
-    if (netMode !== "guest") return;
-    const code = enc({ t:pc.localDescription.type, s:pc.localDescription.sdp });
-    netCardShell("Joining — you take the right seat", `
-      <p><b>2.</b> Send this reply code back to the host, then wait:</p>
-      <textarea ${TA} id="mine" readonly>${code}</textarea>
-      <button ${BTNS} id="copy">COPY REPLY</button>`, "waiting for the host to connect");
-    document.getElementById("copy").onclick = () => {
-      const t = document.getElementById("mine"); t.select();
-      navigator.clipboard?.writeText(t.value).then(()=>setStat("reply copied"), ()=>setStat("select and copy manually"));
-    };
+  if(!peerAvailable()) return netCardShell("Online unavailable", `<p>The online library did not load. Check your internet connection and reload the page.</p>`, "PeerJS could not be loaded");
+  netMode="guest"; state=ST.NET;
+  netCardShell("Join lobby", `<p>Enter the host's <b>6-character lobby code</b>:</p>
+    <input ${TA.replace('height:90px','height:56px')} id="code" maxlength="6" placeholder="ABC123" autocomplete="off" spellcheck="false">
+    <button ${BTNS} id="go">JOIN LOBBY</button>`, "");
+  document.getElementById("go").onclick=async()=>{
+    const code=document.getElementById("code").value.trim().toUpperCase();
+    if(!/^[A-Z0-9]{6}$/.test(code)) return setStat("enter the full 6-character code");
+    setStat("connecting to lobby…");
+    try{
+      peer=new Peer(undefined,{debug:0});
+      peer.on("open",()=>{
+        ch=peer.connect(peerIdFromCode(code),{reliable:true,serialization:"json"});
+        wireChannel();
+        const wait=setInterval(()=>{
+          if(ch && ch.open){ clearInterval(wait); setStat("CONNECTED — waiting for the host"); }
+        },100);
+        setTimeout(()=>{clearInterval(wait);if(!(ch&&ch.open))setStat("could not reach that lobby — check the code and host page");},12000);
+      });
+      peer.on("error",err=>setStat("could not join lobby — " + (err?.type || "check the code")));
+    }catch(e){ setStat("could not join lobby"); }
   };
 }
 
 function netTeardown(){
-  try { ch && ch.close(); } catch {}
-  try { pc && pc.close(); } catch {}
-  ch = null; pc = null; netMode = "local";
-  localSeq = {f:0,p:0,h:0,d:0,s:0,c:0}; remoteSeq = {f:0,p:0,h:0,d:0,s:0,c:0};
-  remotePkt = { a:[0,0], f:0, p:0, h:0, d:0, s:0, c:0 };
+  closePeerOnly(); netMode="local";
+  localSeq={f:0,p:0,h:0,d:0,s:0,c:0}; remoteSeq={f:0,p:0,h:0,d:0,s:0,c:0};
+  remotePkt={a:[0,0],f:0,p:0,h:0,d:0,s:0,c:0}; lobbyCode="";
 }
+function send(o){ if(ch && ch.open){ try{ch.send(o);}catch{} } }
 
-function send(o){ if (ch && ch.readyState === "open") { try { ch.send(JSON.stringify(o)); } catch {} } }
-
-/* host: turn the guest's packet into one frame of input.
-   Presses arrive as counters, so a dropped packet never eats a shot. */
 function remoteInput(){
-  const i = blankInput();
-  i.ax = remotePkt.a[0]; i.ay = remotePkt.a[1];
-  for (const k of ["f","p","h","d","s","c"]){
-    if (remotePkt[k] > remoteSeq[k]){
+  const i=blankInput(); i.ax=remotePkt.a[0]; i.ay=remotePkt.a[1];
+  for(const k of ["f","p","h","d","s","c"]){
+    if(remotePkt[k]>remoteSeq[k]){
       remoteSeq[k]++;
-      if (k==="f") i.fire = true;
-      else if (k==="p"){ i.parry = true; i.back = true; }
-      else if (k==="h") i.shield = true;
-      else if (k==="d") i.dash = true;
-      else if (k==="s") i.special = true;
-      else i.confirm = true;
+      if(k==="f") i.fire=true; else if(k==="p"){i.parry=true;i.back=true;} else if(k==="h") i.shield=true;
+      else if(k==="d") i.dash=true; else if(k==="s") i.special=true; else i.confirm=true;
     }
   }
   return i;
 }
-
-/* guest: sample the keyboard and bump a counter per press */
 function guestSend(){
-  const s = currentSchemes()[0];
-  let ax = 0, ay = 0;
-  if (hasHeld(s.left)) ax -= 1; if (hasHeld(s.right)) ax += 1;
-  if (hasHeld(s.up))   ay -= 1; if (hasHeld(s.down))  ay += 1;
-  if (hasEdge(s.fire))    localSeq.f++;
-  if (hasEdge(s.parry))   localSeq.p++;
-  if (hasEdge(s.shield))  localSeq.h++;
-  if (hasEdge(s.dash))    localSeq.d++;
-  if (hasEdge(s.special)) localSeq.s++;
-  if (hasEdge(s.fire) || edge.has("Enter")) localSeq.c++;
-  send({ i:{ a:[ax,ay], f:localSeq.f, p:localSeq.p, h:localSeq.h, d:localSeq.d, s:localSeq.s, c:localSeq.c } });
+  const s=currentSchemes()[0], ax=(hasHeld(s.left)?-1:0)+(hasHeld(s.right)?1:0), ay=(hasHeld(s.up)?-1:0)+(hasHeld(s.down)?1:0);
+  if(hasEdge(s.fire))localSeq.f++; if(hasEdge(s.parry))localSeq.p++; if(hasEdge(s.shield))localSeq.h++; if(hasEdge(s.dash))localSeq.d++; if(hasEdge(s.special))localSeq.s++;
+  if(hasEdge(s.fire)||edge.has("Enter"))localSeq.c++;
+  send({i:{a:[ax,ay],f:localSeq.f,p:localSeq.p,h:localSeq.h,d:localSeq.d,s:localSeq.s,c:localSeq.c}});
 }
-
-function guestApply(s, u){
-  const wasAlive = game.players.map(p => p.alive);
-  const nMotes = game.motes.length;
-  const last = game.motes[nMotes-1];
-  const lastPos = last ? {x:last.x, y:last.y} : null;
-
+function guestApply(s,u){
+  const wasAlive=game.players.map(p=>p.alive), nMotes=game.motes.length, last=game.motes[nMotes-1], lastPos=last?{x:last.x,y:last.y}:null;
   game.applySnapshot(s);
-
-  if (game.motes.length < nMotes && lastPos) game.burst(lastPos.x, lastPos.y, "#cfe6ff", 8);
-  for (let i=0;i<2;i++) if (wasAlive[i] && !game.players[i].alive)
-    game.burst(game.players[i].x, game.players[i].y, game.players[i].char.color, 46, 260);
-
-  if (u.mode) GAME_MODE=u.mode;
-   if (u.sel){ SELECT_STATE.cursor = u.sel.c; SELECT_STATE.locked = u.sel.l; }
-
-  const key = JSON.stringify(u);
-  if (key !== lastUiKey){
-    lastUiKey = key;
-    state = u.st;
-    if (u.st === ST.CARD) beatCard(u.i, u.r, seatNames());
-    else if (u.st === ST.EPI) epilogueCard(u.w, game.scores, seatNames());
-    else if (u.st === ST.PLAY || u.st === ST.SELECT) hide();
-    else if (u.st === ST.MENU) menuCard();
+  if(game.motes.length<nMotes&&lastPos)game.burst(lastPos.x,lastPos.y,"#cfe6ff",8);
+  for(let i=0;i<2;i++)if(wasAlive[i]&&!game.players[i].alive)game.burst(game.players[i].x,game.players[i].y,game.players[i].char.color,46,260);
+  if(u.mode)GAME_MODE=u.mode;
+  if(u.sel){SELECT_STATE.cursor=u.sel.c;SELECT_STATE.locked=u.sel.l;}
+  const key=JSON.stringify(u);
+  if(key!==lastUiKey){lastUiKey=key;state=u.st;
+    if(u.st===ST.CARD)beatCard(u.i,u.r,seatNames()); else if(u.st===ST.EPI)epilogueCard(u.w,game.scores,seatNames());
+    else if(u.st===ST.PLAY||u.st===ST.SELECT)hide(); else if(u.st===ST.MENU)menuCard();
   }
 }
 
@@ -1784,10 +1766,14 @@ function guestApply(s, u){
 const CPU_LEVELS = [
   { id:"APPRENTICE", think:0.30, bounces:0, parryOdds:0.20, dashOdds:0.30,
     specialOdds:0.35, lead:0.0,  hesitate:0.40, keepAt:270, blindFire:0.34 },
+  { id:"SCOUT",      think:0.23, bounces:0, parryOdds:0.38, dashOdds:0.48,
+    specialOdds:0.55, lead:0.25, hesitate:0.29, keepAt:278, blindFire:0.20 },
   { id:"KEEPER",     think:0.17, bounces:1, parryOdds:0.60, dashOdds:0.70,
     specialOdds:0.80, lead:0.55, hesitate:0.18, keepAt:285, blindFire:0.07 },
-  { id:"WARDEN",     think:0.085,bounces:2, parryOdds:0.93, dashOdds:0.95,
+  { id:"WARDEN",     think:0.105,bounces:2, parryOdds:0.93, dashOdds:0.95,
     specialOdds:1.00, lead:1.0,  hesitate:0.0,  keepAt:260, blindFire:0.0 },
+  { id:"HARBINGER",  think:0.065,bounces:3, parryOdds:0.985,dashOdds:0.99,
+    specialOdds:1.00, lead:1.25, hesitate:-0.03,keepAt:245, blindFire:0.0 },
 ];
 
 const CPU = { seats:[false,false], level:1, mem:[null,null], selT:0 };
