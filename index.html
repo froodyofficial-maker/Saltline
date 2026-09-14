@@ -78,6 +78,9 @@
   .utilityRow{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin:18px 0 2px;}
   .utilityBtn{width:100%;cursor:pointer;background:transparent;border:1px solid #223245;border-radius:7px;padding:10px 12px;color:#a9b6c7;font:600 11px ui-monospace,monospace;letter-spacing:.16em;transition:border-color .15s,background .15s,color .15s;}
   .utilityBtn:hover{border-color:#4a6a8f;background:#101a26;color:var(--ink);}
+
+  .skinPreview{width:54px;height:54px;border:1px solid #2b3a4d;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;margin:8px 0 10px;background:radial-gradient(circle at 40% 35%,var(--sp-a),var(--sp-b) 58%,#070b12 60%);box-shadow:0 0 18px color-mix(in srgb,var(--sp-a) 30%,transparent);}
+  .skinPreview:after{content:"";width:20px;height:20px;border-radius:50%;background:var(--sp-b);border:2px solid var(--sp-a);}
   @media (max-width:520px){.utilityRow{grid-template-columns:1fr;}}
 </style>
 <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
@@ -123,7 +126,7 @@ fitCanvas();
 const BASE = {
   accel:2600, maxSpeed:265, friction:9.0, radius:13,
   dashSpeed:760, dashTime:0.16, dashCd:1.35,
-  ammo:10, fireCd:0.07, reload:0.25,
+  ammo:10, fireCd:0, reload:0.25,
   moteSpeed:520, moteRadius:5, moteBounces:5, moteLife:6.0, armTime:0.45,
   parryTime:0.14, parryCd:0.9, parryReach:38, parryArc:Math.PI*0.62, returnSpeed:660,
   bounceGain:1,                      // velocity multiplier applied on each bounce
@@ -174,7 +177,7 @@ const CHARS = [
     passive:"Small — a smaller target and quicker feet, but a slower trigger.",
     special:"DUCK UNDER", specialText:"Light passes through you. No shooting, no guard.",
     ending:"goes on finding things in the mud that the flood was supposed to have kept.",
-    stats:{ radius:10, maxSpeed:298, accel:2850, fireCd:0.42, reload:1.15 } },
+    stats:{ radius:10, maxSpeed:298, accel:2850, fireCd:0, reload:1.15 } },
 
   { id:"vane", name:"VANE", title:"The Signalman", color:"#c4a6ff",
     passive:"Long focus — motes live longer and gather speed off every wall.",
@@ -192,7 +195,7 @@ const CHARS = [
     passive:"Dowser — you see the line your shot will take, two walls ahead.",
     special:"SINKHOLE", specialText:"Open a hole in the floor that drinks light.",
     ending:"digs down past the door under the cistern and does not write what is there.",
-    stats:{ moteSpeed:495, fireCd:0.26 } },
+    stats:{ moteSpeed:495, fireCd:0 } },
 ];
 CHARS.forEach(c => c.st = Object.assign({}, BASE, c.stats));
 
@@ -227,6 +230,69 @@ function saveProgress(){
 }
 let PROGRESS = loadProgress();
 let LAST_COINS_EARNED = 0;
+
+/* ---------- cosmetic skins ----------
+   Skins never change stats or hitboxes. Each keeper has five compact
+   visual variants: the default is free; the other four are bought with coins. */
+const SKIN_COSTS = [0,35,60,85,120];
+const SKIN_STYLES = [
+  {id:"default", name:"DEFAULT", body:null, accent:null, glow:null},
+  {id:"arctic", name:"ARCTIC", body:"#dce8f2", accent:"#78b8e8", glow:"#a9dcff"},
+  {id:"crimson", name:"CRIMSON", body:"#321b22", accent:"#d85b61", glow:"#ff7d78"},
+  {id:"dusk", name:"DUSK", body:"#241f35", accent:"#8769c8", glow:"#b08cff"},
+  {id:"ashen", name:"ASHEN", body:"#a9adb2", accent:"#e6e8ea", glow:"#d5dde5"},
+];
+const SKIN_NAMES = {
+  ines:["DEFAULT","TIDE","EMBER","NOCTURNE","ASHEN"],
+  cato:["DEFAULT","SAND","OBSIDIAN","REVENANT","ARCTIC"],
+  meran:["DEFAULT","FROST","TWILIGHT","EMBER","ASHEN"],
+  odall:["DEFAULT","IRON","COBALT","HAZARD","FROST"],
+  silt:["DEFAULT","MOSS","SAND","VOID","DUSK"],
+  vane:["DEFAULT","SKY","SHADOW","SCARLET","ARCTIC"],
+  keel:["DEFAULT","STEEL","TIDEWORN","GILDED","ASHEN"],
+  auger:["DEFAULT","DEPTHS","CORAL","ABYSS","ARCTIC"]
+};
+const SKIN_PALETTES = {
+  ines:[["#10151d","#ffb347","#ffb347"],["#dce8f2","#78b8e8","#a9dcff"],["#321b22","#d85b61","#ff7d78"],["#241f35","#8769c8","#b08cff"],["#a9adb2","#e6e8ea","#d5dde5"]],
+  cato:[["#101820","#7fe8ff","#7fe8ff"],["#bba98b","#d8c6a3","#f0dfbd"],["#111318","#454c58","#8b96a5"],["#321a1c","#a83d45","#ff7770"],["#dce8f2","#78b8e8","#a9dcff"]],
+  meran:[["#e7eef2","#9df5c0","#9df5c0"],["#dce8f2","#7fb9e8","#b8e3ff"],["#29283d","#8769c8","#b08cff"],["#42241f","#d76a4f","#ff9a78"],["#a9adb2","#e6e8ea","#d5dde5"]],
+  odall:[["#17251e","#ff8a6b","#ff8a6b"],["#33383c","#aeb7c0","#dce8f2"],["#172c44","#4d91d1","#87c8ff"],["#3a2015","#e17a34","#ffb15c"],["#dce8f2","#78b8e8","#a9dcff"]],
+  silt:[["#20252b","#c9d66b","#c9d66b"],["#263a2b","#6f9b63","#9cc98b"],["#5b4b39","#c5a77e","#e7cda1"],["#272039","#765aa9","#b18bdb"],["#241f35","#8769c8","#b08cff"]],
+  vane:[["#25231f","#c4a6ff","#c4a6ff"],["#263d53","#78bce8","#b8e3ff"],["#15171a","#5e6875","#b5bec8"],["#3c1e20","#c54f4a","#ff8b78"],["#dce8f2","#78b8e8","#a9dcff"]],
+  keel:[["#2d2724","#8fb6d9","#8fb6d9"],["#4a4f55","#9ea8b3","#e0e6ec"],["#26384a","#5d9ac9","#a8d9ff"],["#4c3820","#cba65b","#ffe19a"],["#a9adb2","#e6e8ea","#d5dde5"]],
+  auger:[["#171a20","#e0c36a","#e0c36a"],["#12323a","#3fc2cc","#76f5ff"],["#4a2e3a","#d86f9c","#ffabc9"],["#0b1118","#3e718c","#72cfff"],["#dce8f2","#78b8e8","#a9dcff"]]
+};
+function ensureSkinProgress(){
+  if(!Array.isArray(PROGRESS.skins)) PROGRESS.skins=[];
+  if(!PROGRESS.equipped) PROGRESS.equipped={p1:{},p2:{}};
+  PROGRESS.equipped.p1 ||= {}; PROGRESS.equipped.p2 ||= {};
+  for(const c of CHARS){
+    PROGRESS.equipped.p1[c.id] ||= "default";
+    PROGRESS.equipped.p2[c.id] ||= "default";
+  }
+}
+ensureSkinProgress(); saveProgress();
+function skinKey(charId, idx){ return charId+":"+SKIN_STYLES[idx].id; }
+function skinName(charId, idx){ return SKIN_NAMES[charId]?.[idx] || SKIN_STYLES[idx].name; }
+function skinOwned(charId, idx){ return idx===0 || PROGRESS.skins.includes(skinKey(charId,idx)); }
+function buySkin(charId, idx){
+  if(skinOwned(charId,idx)) return true;
+  const cost=SKIN_COSTS[idx];
+  if(PROGRESS.coins<cost) return false;
+  PROGRESS.coins-=cost; PROGRESS.skins.push(skinKey(charId,idx)); saveProgress(); return true;
+}
+function equippedSkin(seat,charId){ return PROGRESS.equipped?.["p"+(seat+1)]?.[charId] || "default"; }
+function setEquippedSkin(seat,charId,idx){
+  if(!skinOwned(charId,idx)) return false;
+  PROGRESS.equipped["p"+(seat+1)][charId]=SKIN_STYLES[idx].id; saveProgress(); return true;
+}
+function skinIndex(charId,id){ const n=(SKIN_NAMES[charId]||[]).findIndex((_,i)=>SKIN_STYLES[i].id===id); return n<0?0:n; }
+function skinLook(p){
+  const idx=skinIndex(p.char.id,p.skinId);
+  const pal=SKIN_PALETTES[p.char.id]?.[idx] || [p.char.color,p.char.color,p.char.color];
+  return {body:pal[0],accent:pal[1],glow:pal[2],idx};
+}
+
 /* ---------- player settings / game modes ---------- */
 const SETTINGS_KEY = "saltline_settings_v2";
 const DEFAULT_KEYS = {
@@ -286,6 +352,31 @@ addEventListener("keydown", e=>{
   e.preventDefault(); e.stopPropagation();
   setBinding(BINDING.seat,BINDING.key,e.code);
 }, true);
+function skinsCard(){
+  ensureSkinProgress();
+  let activeSeat=0;
+  let activeChar=CHARS.find(c=>isUnlocked(c)) || CHARS[0];
+  const render=()=>{
+    const equipped=equippedSkin(activeSeat,activeChar.id);
+    show(`<div class="kicker">Characters · cosmetics</div><h2>Skins</h2>
+      <div class="coinTag">◆ ${PROGRESS.coins} salt-coins</div>
+      <p>Choose a keeper, preview their compact cosmetic variants, then equip one. Skins never change gameplay.</p>
+      <div class="modeGrid">${CHARS.filter(isUnlocked).map(c=>`<button class="modeBtn" id="skinchar_${c.id}"><div class="num">${c.id===activeChar.id?"SELECTED":"KEEPER"}</div><div class="lbl" style="color:${c.color}">${c.name}</div><div class="desc">${c.title} · ${c.special}</div></button>`).join("")}</div>
+      <div class="kicker" style="margin-top:26px">${activeChar.name} · skins</div>
+      <div class="modeGrid" style="grid-template-columns:repeat(5,1fr)">${SKIN_STYLES.map((st,i)=>{const own=skinOwned(activeChar.id,i), eq=equipped===st.id; return `<button class="modeBtn" id="skin_${i}"><div class="num">${eq?"EQUIPPED":own?"OWNED":"◆ "+SKIN_COSTS[i]}</div><div class="skinPreview" style="--sp-a:${SKIN_PALETTES[activeChar.id][i][2]};--sp-b:${SKIN_PALETTES[activeChar.id][i][0]}"></div><div class="lbl" style="color:${SKIN_PALETTES[activeChar.id][i][2]}">${skinName(activeChar.id,i)}</div><div class="desc">${eq?"Currently equipped":own?"Click to equip":"Buy this cosmetic variant"}</div></button>`;}).join("")}</div>
+      <p class="hint">PLAYER ${activeSeat+1} LOADOUT · ${activeChar.name} · ${skinName(activeChar.id,skinIndex(activeChar.id,equipped))}</p>
+      <div class="utilityRow"><button class="utilityBtn" id="seat1">PLAYER 1</button><button class="utilityBtn" id="seat2">PLAYER 2</button><button class="utilityBtn" id="skinshop">SHOP</button></div>
+      <button class="backBtn" id="skinback">‹ BACK</button>`, true);
+    CHARS.filter(isUnlocked).forEach(c=>document.getElementById("skinchar_"+c.id).onclick=()=>{activeChar=c;render();});
+    SKIN_STYLES.forEach((st,i)=>document.getElementById("skin_"+i).onclick=()=>{ if(skinOwned(activeChar.id,i)||buySkin(activeChar.id,i)){setEquippedSkin(activeSeat,activeChar.id,i);render();} });
+    document.getElementById("seat1").onclick=()=>{activeSeat=0;render();};
+    document.getElementById("seat2").onclick=()=>{activeSeat=1;render();};
+    document.getElementById("skinshop").onclick=shopCard;
+    document.getElementById("skinback").onclick=toMenu;
+  };
+  render();
+}
+
 function shopCard(){
  show(`<div class="kicker">Salt-coins</div><h2>Shop</h2><div class="coinTag">◆ ${PROGRESS.coins} salt-coins</div>
  <p>Unlock fighters and maps with coins earned from CPU victories. The first ${FREE_MAP_COUNT} maps are always free and stay in the standard rotation.</p>
@@ -337,61 +428,61 @@ const ARENAS = [
     walls:[ {x:430,y:250,w:100,h:100},
             {x:150,y:120,w:40,h:140}, {x:770,y:340,w:40,h:140} ],
     spawns:[[120,300],[840,300]],
-    pickups:[[480,150],[480,450]] },
+    pickups:[[480,150],[480,450],[280,80],[680,520]] },
 
   { name:"The Cistern",
     walls:[ {x:240,y:140,w:120,h:40}, {x:600,y:420,w:120,h:40},
             {x:240,y:420,w:120,h:40}, {x:600,y:140,w:120,h:40},
             {x:420,y:260,w:120,h:80, void:true} ],
     spawns:[[120,120],[840,480]],
-    pickups:[[840,120],[120,480]] },
+    pickups:[[840,120],[120,480],[120,240],[840,360]] },
 
   { name:"The Salt Line",
     walls:[ {x:200,y:200,w:560,h:24}, {x:200,y:376,w:560,h:24},
             {x:80,y:280,w:24,h:40},   {x:856,y:280,w:24,h:40} ],
     spawns:[[120,100],[840,500]],
-    pickups:[[480,180],[480,420]] },
+    pickups:[[480,180],[480,420],[120,180],[840,420]] },
 
   { name:"The Door Below",
     walls:[ {x:300,y:100,w:40,h:180}, {x:620,y:320,w:40,h:180},
             {x:140,y:380,w:120,h:24}, {x:700,y:196,w:120,h:24},
             {x:440,y:270,w:80,h:60, void:true} ],
     spawns:[[120,300],[840,300]],
-    pickups:[[480,80],[480,520]] },
+    pickups:[[480,80],[480,520],[180,100],[780,500]] },
 
   { name:"One Light",
     walls:[ {x:380,y:180,w:40,h:40}, {x:540,y:180,w:40,h:40},
             {x:380,y:380,w:40,h:40}, {x:540,y:380,w:40,h:40},
             {x:60,y:240,w:24,h:120},  {x:876,y:240,w:24,h:120} ],
     spawns:[[120,120],[840,480]],
-    pickups:[[480,60],[480,540]] },
+    pickups:[[480,60],[480,540],[180,480],[780,120]] },
 
   { name:"The Boathouse",
     walls:[ {x:260,y:220,w:160,h:28}, {x:540,y:352,w:160,h:28},
             {x:120,y:440,w:100,h:24}, {x:740,y:136,w:100,h:24} ],
     spawns:[[120,120],[840,480]],
-    pickups:[[840,300],[120,300]] },
+    pickups:[[840,300],[120,300],[300,100],[660,500]] },
 
   { name:"Low Tide",
     walls:[ {x:300,y:266,w:360,h:68, void:true},
             {x:120,y:150,w:24,h:100}, {x:816,y:350,w:24,h:100},
             {x:300,y:470,w:100,h:24}, {x:560,y:106,w:100,h:24} ],
     spawns:[[120,470],[840,130]],
-    pickups:[[230,150],[730,450]] },
+    pickups:[[230,150],[730,450],[730,150],[230,450]] },
 
   { name:"The Signal Fire",
     walls:[ {x:462,y:262,w:36,h:76},
             {x:220,y:150,w:140,h:24}, {x:600,y:426,w:140,h:24},
             {x:220,y:426,w:140,h:24}, {x:600,y:150,w:140,h:24} ],
     spawns:[[120,300],[840,300]],
-    pickups:[[480,110],[480,490]] },
+    pickups:[[480,110],[480,490],[120,180],[840,420]] },
 
   { name:"Drowned Chapel",
     walls:[ {x:160,y:180,w:120,h:32}, {x:680,y:388,w:120,h:32},
             {x:420,y:100,w:120,h:32}, {x:420,y:468,w:120,h:32},
             {x:420,y:284,w:120,h:32, void:true} ],
     spawns:[[120,480],[840,120]],
-    pickups:[[840,480],[120,120]] },
+    pickups:[[840,480],[120,120],[240,480],[720,120]] },
 ];
 
 ARENAS.forEach((a,i) => {
@@ -506,6 +597,7 @@ class Player {
 
   reset(x,y){
     this.char = CHARS[this.charId];
+    this.skinId = equippedSkin(this.idx, this.char.id);
     this.st = this.char.st;
     this.x=x; this.y=y; this.vx=0; this.vy=0;
     this.fx = x < W/2 ? 1 : -1; this.fy = 0;   // facing, unit vector
@@ -638,9 +730,8 @@ class Game {
   stepPlayer(p, inp, dt){
     if (!p.alive) return;
     const st = p.st;
-    p.fireCd  = Math.max(0, p.fireCd  - dt);
     p.fireBuffer = Math.max(0, p.fireBuffer - dt);
-    if (inp.fire) p.fireBuffer = 0.14;
+    if (inp.fire) p.fireBuffer = 0.10;
     p.parryCd = Math.max(0, p.parryCd - dt);
     p.shieldCd = Math.max(0, p.shieldCd - dt);
     p.shieldT = Math.max(0, p.shieldT - dt);
@@ -682,9 +773,9 @@ class Game {
       p.shieldBuffer = 0;
       p.shieldT = 0.5; p.shieldCd = 3.0;
     }
-    if ((inp.fire || p.fireBuffer > 0) && p.fireCd <= 0 && p.ammo > 0 && p.ghost <= 0){
+    if ((inp.fire || p.fireBuffer > 0) && p.ammo > 0 && p.ghost <= 0){
       p.fireBuffer = 0;
-      p.ammo--; p.fireCd = st.fireCd;
+      p.ammo--;
       const mo = this.spawnMote(p, 0);
       if (p.primed){ mo.split = true; p.primed = false; }
     }
@@ -979,7 +1070,7 @@ class Game {
         Math.round(p.parryT*100)/100, Math.round(p.dashCd*100)/100,
         Math.round(p.parryCd*100)/100, Math.round(p.flash*100)/100,
         Math.round(p.shieldT*100)/100, Math.round(p.shieldCd*100)/100,
-        Math.round(p.charge), Math.round(p.ghost*100)/100,
+        Math.round(p.charge), Math.round(p.ghost*100)/100, p.skinId,
         p.primed?1:0, Math.round(p.burstT*100)/100, Math.round(p.specialCd*100)/100 ]),
       m:this.motes.map(m => [
         Math.round(m.x*10)/10, Math.round(m.y*10)/10,
@@ -1007,7 +1098,7 @@ class Game {
       p.x=a[0]; p.y=a[1]; p.fx=a[2]; p.fy=a[3]; p.alive=!!a[4];
       p.ammo=a[5]; p.parryT=a[6]; p.dashCd=a[7]; p.parryCd=a[8]; p.flash=a[9];
       p.shieldT=a[10]||0; p.shieldCd=a[11]||0;
-      p.charge=a[12]; p.ghost=a[13]; p.primed=!!a[14]; p.burstT=a[15]; p.specialCd=a[16]||0;
+      p.charge=a[12]; p.ghost=a[13]; p.skinId=a[14] || "default"; p.primed=!!a[15]; p.burstT=a[16]; p.specialCd=a[17]||0;
     });
     this.temps = s.w.map(t => ({x:t[0], y:t[1], w:t[2], h:t[3], void:!!t[4], ttl:t[5]}));
     this.rings = s.g.map(r => ({x:r[0], y:r[1], t:r[2], life:r[3]}));
@@ -1224,11 +1315,11 @@ function render(g, ui){
   // keepers
   for (const p of g.players){
     if (!p.alive) continue;
-    const col = p.char.color, rad = p.st.radius;
+    const look = skinLook(p), col = look.accent, rad = p.st.radius;
 
     if (p.shieldT > 0){
       ctx.globalAlpha = 0.82;
-      ctx.strokeStyle = p.char.color; ctx.lineWidth = 4;
+      ctx.strokeStyle = look.glow; ctx.lineWidth = 4;
       ctx.beginPath(); ctx.arc(p.x, p.y, rad + 11, 0, Math.PI*2); ctx.stroke();
       ctx.globalAlpha = 1;
     }
@@ -1250,12 +1341,15 @@ function render(g, ui){
     }
 
     ctx.globalAlpha = p.ghost > 0 ? 0.32 : 1;    // Silt, mid-duck
-    ctx.shadowBlur = 26; ctx.shadowColor = col;
-    ctx.fillStyle = col;
+    ctx.shadowBlur = 26; ctx.shadowColor = look.glow;
+    ctx.fillStyle = look.body;
     ctx.beginPath(); ctx.arc(p.x, p.y, rad, 0, 7); ctx.fill();
     ctx.shadowBlur = 0;
     ctx.fillStyle = "#05080d";
-    ctx.beginPath(); ctx.arc(p.x, p.y, rad-5, 0, 7); ctx.fill();
+    ctx.beginPath(); ctx.arc(p.x, p.y, Math.max(3,rad-5), 0, 7); ctx.fill();
+    // compact cosmetic stripe so skins remain visible even at gameplay scale
+    ctx.strokeStyle = look.accent; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.arc(p.x, p.y, Math.max(4,rad-2), p.facing-0.9, p.facing+0.9); ctx.stroke();
 
     // the mirror: which way the shot and the guard will go
     ctx.strokeStyle = "#ffffff"; ctx.lineWidth = 3;
@@ -1505,6 +1599,7 @@ function menuCard(){
     <div class="utilityRow">
       <button class="utilityBtn" id="m5">GAME MODES</button>
       <button class="utilityBtn" id="m6">SHOP</button>
+      <button class="utilityBtn" id="m8">CHARACTERS</button>
       <button class="utilityBtn" id="m7">SETTINGS</button>
     </div>
     <div class="rule"></div>
@@ -1529,7 +1624,7 @@ function menuCard(){
     <p class="hint" style="margin-top:22px">Every shot arms itself after its first wall — after that
        it doesn't care whose it was. Charge your special by parrying, by keeping your own shots
        alive off the walls, and by slipping past a live one. Grab the glowing pickups for extra ammo.
-       &nbsp;·&nbsp; Use the controls above, or press <b>5</b>, <b>6</b>, <b>7</b> for modes, shop, and settings</p>
+       &nbsp;·&nbsp; Use the controls above, or press <b>5</b>, <b>6</b>, <b>7</b>, <b>8</b> for modes, shop, settings, and characters</p>
   `, true);
   document.getElementById("m1").onclick = uiStartLocal;
   document.getElementById("m4").onclick = uiStartCPU;
@@ -1537,6 +1632,7 @@ function menuCard(){
   document.getElementById("m3").onclick = joinFlow;
   document.getElementById("m5").onclick = () => modeCard();
   document.getElementById("m6").onclick = shopCard;
+  document.getElementById("m8").onclick = skinsCard;
   document.getElementById("m7").onclick = settingsCard;
 }
 
@@ -1718,12 +1814,13 @@ async function joinFlow(){
 function netTeardown(){
   closePeerOnly(); netMode="local";
   localSeq={f:0,p:0,h:0,d:0,s:0,c:0}; remoteSeq={f:0,p:0,h:0,d:0,s:0,c:0};
-  remotePkt={a:[0,0],f:0,p:0,h:0,d:0,s:0,c:0}; lobbyCode="";
+  remotePkt={a:[0,0],f:0,p:0,h:0,d:0,s:0,c:0,skin:"default"}; lobbyCode="";
 }
 function send(o){ if(ch && ch.open){ try{ch.send(o);}catch{} } }
 
 function remoteInput(){
   const i=blankInput(); i.ax=remotePkt.a[0]; i.ay=remotePkt.a[1];
+  if (netMode === "host" && game.players[1]) game.players[1].skinId = remotePkt.skin || "default";
   for(const k of ["f","p","h","d","s","c"]){
     if(remotePkt[k]>remoteSeq[k]){
       remoteSeq[k]++;
@@ -1737,7 +1834,7 @@ function guestSend(){
   const s=currentSchemes()[0], ax=(hasHeld(s.left)?-1:0)+(hasHeld(s.right)?1:0), ay=(hasHeld(s.up)?-1:0)+(hasHeld(s.down)?1:0);
   if(hasEdge(s.fire))localSeq.f++; if(hasEdge(s.parry))localSeq.p++; if(hasEdge(s.shield))localSeq.h++; if(hasEdge(s.dash))localSeq.d++; if(hasEdge(s.special))localSeq.s++;
   if(hasEdge(s.fire)||edge.has("Enter"))localSeq.c++;
-  send({i:{a:[ax,ay],f:localSeq.f,p:localSeq.p,h:localSeq.h,d:localSeq.d,s:localSeq.s,c:localSeq.c}});
+  send({i:{a:[ax,ay],f:localSeq.f,p:localSeq.p,h:localSeq.h,d:localSeq.d,s:localSeq.s,c:localSeq.c,skin:equippedSkin(1, game?.players?.[1]?.char?.id || CHARS[1].id)}});
 }
 function guestApply(s,u){
   const wasAlive=game.players.map(p=>p.alive), nMotes=game.motes.length, last=game.motes[nMotes-1], lastPos=last?{x:last.x,y:last.y}:null;
@@ -1986,7 +2083,7 @@ function cpuPlan(g, seat, lvl, m){
 
   const threats = cpuThreats(g, p);
   const worst = threats[0];
-  const shot = (p.fireCd <= 0 && p.ammo > 0) ? cpuFindShot(g, p, foe, lvl) : null;
+  const shot = (p.ammo > 0) ? cpuFindShot(g, p, foe, lvl) : null;
   const wantSpecial = cpuSpecialWanted(g, p, foe, lvl, worst, shot);
 
   // Specials that need to be aimed somewhere specific go first.
@@ -2034,7 +2131,7 @@ function cpuPlan(g, seat, lvl, m){
       return;
     }
   }
-  if (p.fireCd <= 0 && p.ammo > 0 && lvl.blindFire > 0 &&
+  if (p.ammo > 0 && lvl.blindFire > 0 &&
       cpuDraw(p, Math.round(g.time*7)*41, 53) < lvl.blindFire){
     m.dir = cpuFace(p, foe);
     m.fire = true;
@@ -2236,6 +2333,7 @@ function tick(now){
       else if (edge.has("Digit5") || edge.has("Numpad5")) modeCard();
       else if (edge.has("Digit6") || edge.has("Numpad6")) shopCard();
       else if (edge.has("Digit7") || edge.has("Numpad7")) settingsCard();
+      else if (edge.has("Digit8") || edge.has("Numpad8")) skinsCard();
       break;
 
     case ST.DIFF: {
