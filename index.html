@@ -18,12 +18,19 @@
   #wrap{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;}
   canvas{display:block;image-rendering:auto;background:#06090f;
     box-shadow:0 0 0 1px #16202c, 0 24px 80px rgba(0,0,0,.8);}
-  #overlay{position:absolute;inset:0;display:none;align-items:flex-start;justify-content:center;
-    padding:4vh 6vw;box-sizing:border-box;background:radial-gradient(ellipse at 50% 40%, rgba(8,12,20,.86), rgba(4,6,10,.97));
+  #overlay{position:absolute;inset:0;display:none;align-items:center;justify-content:center;
+    padding:clamp(18px,5vh,56px) clamp(18px,6vw,72px);background:radial-gradient(ellipse at 50% 40%, rgba(8,12,20,.86), rgba(4,6,10,.97));
     backdrop-filter:blur(2px);overflow:auto;}
   #overlay.on{display:flex;}
-  .card{max-width:760px;width:100%;animation:rise .5s ease both;margin:0 auto;}
+  .card{max-width:820px;width:100%;animation:rise .5s ease both;padding-bottom:12px;}
   @keyframes rise{from{opacity:0;transform:translateY(14px);}to{opacity:1;transform:none;}}
+  #overlay.scrollCard{align-items:flex-start;padding-top:clamp(18px,4vh,42px);padding-bottom:clamp(18px,4vh,42px);box-sizing:border-box;}
+  #overlay.scrollCard .card{margin-top:0;margin-bottom:0;}
+  .lobbyBar{display:flex;align-items:center;justify-content:space-between;gap:14px;padding:11px 14px;margin:0 0 18px;border:1px solid var(--edge);border-radius:8px;background:rgba(14,23,32,.72);font:600 11px ui-monospace,monospace;letter-spacing:.12em;text-transform:uppercase;color:var(--dim);}
+  .lobbyBar b{color:#e8eef7;}
+  .onlineTag{color:#8fe3b0;}
+  @media (max-width:700px){.modeGrid{grid-template-columns:1fr;}.keys{grid-template-columns:1fr;gap:16px;}.card{max-width:620px;}}
+  @media (max-height:700px){#overlay{padding-top:14px;padding-bottom:14px;}h1{font-size:clamp(42px,10vw,76px);}p{font-size:15px;}.modeGrid{gap:10px;}.modeBtn{min-height:90px;padding:12px 14px;}.keys{margin-top:18px;}.hint{margin-top:18px;}}
   .kicker{font:600 12px/1 ui-monospace,SFMono-Regular,Menlo,monospace;
     letter-spacing:.34em;text-transform:uppercase;color:var(--dim);margin-bottom:18px;}
   h1{font-size:clamp(44px,9vw,96px);line-height:.92;margin:0 0 10px;letter-spacing:.06em;font-weight:500;}
@@ -51,7 +58,6 @@
     color:#ffd66b;background:rgba(255,214,107,.1);border:1px solid rgba(255,214,107,.3);
     border-radius:20px;padding:6px 14px;margin-bottom:20px;}
   .modeGrid{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin:22px 0 6px;}
-  @media (max-width:640px){.modeGrid{grid-template-columns:1fr;}}
   .modeBtn{display:block;text-align:left;width:100%;cursor:pointer;
     background:#101a26;border:1px solid #223245;border-radius:10px;padding:16px 18px;
     color:var(--ink);font-family:inherit;transition:border-color .15s,transform .15s,background .15s;}
@@ -210,8 +216,8 @@ let LAST_COINS_EARNED = 0;
 /* ---------- player settings / game modes ---------- */
 const SETTINGS_KEY = "saltline_settings_v2";
 const DEFAULT_KEYS = {
-  p1:{up:"KeyW",down:"KeyS",left:"KeyA",right:"KeyD",fire:"Space",parry:"KeyQ",dash:"KeyE",special:"KeyF"},
-  p2:{up:"ArrowUp",down:"ArrowDown",left:"ArrowLeft",right:"ArrowRight",fire:"Period",parry:"Comma",dash:"Slash",special:"Semicolon"}
+  p1:{up:"KeyW",down:"KeyS",left:"KeyA",right:"KeyD",fire:"Space",parry:"KeyQ",dash:"KeyE",special:"KeyF",shield:"KeyG"},
+  p2:{up:"ArrowUp",down:"ArrowDown",left:"ArrowLeft",right:"ArrowRight",fire:"Period",parry:"Comma",dash:"Slash",special:"Semicolon",shield:"Quote"}
 };
 function loadSettings(){
   try{ const x=JSON.parse(localStorage.getItem(SETTINGS_KEY)||"null");
@@ -221,8 +227,8 @@ function loadSettings(){
 }
 let KEYBINDS=loadSettings();
 function saveSettings(){try{localStorage.setItem(SETTINGS_KEY,JSON.stringify(KEYBINDS));}catch{}}
-function keyLabel(code){const n={Space:"SPACE",Period:".",Comma:",",Slash:"/",Semicolon:";",ShiftLeft:"L SHIFT",ShiftRight:"R SHIFT",ControlLeft:"L CTRL",ControlRight:"R CTRL",AltLeft:"L ALT",AltRight:"R ALT"};return n[code]||(code.startsWith("Key")?code.slice(3):code.replace("Arrow",""));}
-function currentSchemes(){return [{...KEYBINDS.p1,special:[KEYBINDS.p1.special,"KeyR"]},{...KEYBINDS.p2,special:[KEYBINDS.p2.special,"ShiftRight","Numpad0"]}];}
+function keyLabel(code){const n={Space:"SPACE",Period:".",Comma:",",Slash:"/",Semicolon:";",Quote:"'",Backquote:"`",Minus:"-",Equal:"=",BracketLeft:"[",BracketRight:"]",Backslash:"\\",ShiftLeft:"L SHIFT",ShiftRight:"R SHIFT",ControlLeft:"L CTRL",ControlRight:"R CTRL",AltLeft:"L ALT",AltRight:"R ALT",Mouse0:"MOUSE LEFT",Mouse1:"MOUSE MIDDLE",Mouse2:"MOUSE RIGHT",Mouse3:"MOUSE 4",Mouse4:"MOUSE 5"};return n[code]||(code.startsWith("Key")?code.slice(3):code.replace("Arrow",""));}
+function currentSchemes(){return [{...KEYBINDS.p1},{...KEYBINDS.p2}];}
 let GAME_MODE="classic";
 const GAME_MODES={
  classic:{name:"Classic Duel",desc:"First to 3 round wins. The original SALT LINE rules."},
@@ -231,27 +237,31 @@ const GAME_MODES={
  tide:{name:"Closing Tide",desc:"The arena starts closing after 18 seconds. Keep moving."}
 };
 function modeCard(next){
- show(`<div class="kicker">Game modes</div><h2>Choose the rules</h2><p>Same SALT LINE combat, different win conditions.</p>
+ show(`<div class="kicker">Game modes</div><h2>Choose the rules</h2>
+ <div class="lobbyBar"><span>Lobby <b>${netMode === "host" || netMode === "guest" ? "ONLINE" : "LOCAL"}</b></span><span class="onlineTag">${netMode === "host" || netMode === "guest" ? "FRIEND CONNECTED" : "CPU / LOCAL"}</span></div>
+ <p>Same SALT LINE combat, different win conditions. Online friends stay connected between matches.</p>
  <div class="modeGrid">${Object.entries(GAME_MODES).map(([id,m],i)=>`<button class="modeBtn" id="gm_${id}"><div class="num">${i+1} · MODE</div><div class="lbl">${m.name}</div><div class="desc">${m.desc}</div></button>`).join("")}</div>
- <button class="backBtn" id="gmback">‹ BACK</button>`);
+ <button class="backBtn" id="gmback">‹ BACK</button>`, true);
  Object.keys(GAME_MODES).forEach(id=>document.getElementById("gm_"+id).onclick=()=>{GAME_MODE=id;if(next)next();else startSelect();});
  document.getElementById("gmback").onclick=toMenu;
 }
 function settingsCard(){
- const rows=[["up","UP / MOVE"],["down","DOWN / MOVE"],["left","LEFT / MOVE"],["right","RIGHT / MOVE"],["fire","SHOOT"],["parry","GUARD / PARRY"],["dash","DASH"],["special","SPECIAL"]];
+ const rows=[["up","UP / MOVE"],["down","DOWN / MOVE"],["left","LEFT / MOVE"],["right","RIGHT / MOVE"],["fire","SHOOT"],["parry","GUARD / PARRY"],["shield","SHIELD"],["dash","DASH"],["special","SPECIAL"]];
  show(`<div class="kicker">Settings</div><h2>Controls</h2><p>Click an action, then press the key you want. Changes save automatically.</p>
  <div style="display:grid;grid-template-columns:1fr 1fr;gap:22px;margin-top:20px">${["p1","p2"].map((who,si)=>`<section style="border-top:1px solid var(--edge);padding-top:12px"><h3 style="font:600 12px ui-monospace;letter-spacing:.2em">${si?"PLAYER TWO":"PLAYER ONE"}</h3>${rows.map(([k,l])=>`<button class="diffBtn bindBtn" data-seat="${who}" data-key="${k}">${l}<span style="float:right;color:#ffd66b">${keyLabel(KEYBINDS[who][k])}</span></button>`).join("")}</section>`).join("")}</div>
- <p class="hint" id="bindStatus"></p><button class="backBtn" id="setback">‹ BACK</button>`);
+ <p class="hint" id="bindStatus"></p><button class="backBtn" id="setback">‹ BACK</button>`, true);
  let waiting=null;
  document.querySelectorAll(".bindBtn").forEach(b=>b.onclick=()=>{waiting=b;document.getElementById("bindStatus").textContent="PRESS A KEY…";});
- const handler=e=>{if(!waiting)return;e.preventDefault();KEYBINDS[waiting.dataset.seat][waiting.dataset.key]=e.code;saveSettings();settingsCard();};
- window.addEventListener("keydown",handler,{once:true,capture:true});
+ const keyHandler=e=>{if(!waiting)return;e.preventDefault();KEYBINDS[waiting.dataset.seat][waiting.dataset.key]=e.code;saveSettings();settingsCard();};
+ const mouseHandler=e=>{if(!waiting || e.button>4)return;e.preventDefault();e.stopPropagation();KEYBINDS[waiting.dataset.seat][waiting.dataset.key]="Mouse"+e.button;saveSettings();settingsCard();};
+ window.addEventListener("keydown",keyHandler,{once:true,capture:true});
+ window.addEventListener("mousedown",mouseHandler,{once:true,capture:true});
  document.getElementById("setback").onclick=toMenu;
 }
 function shopCard(){
  show(`<div class="kicker">Salt-coins</div><h2>Shop</h2><div class="coinTag">◆ ${PROGRESS.coins} salt-coins</div><p>Unlock fighters here. The character select still works too.</p>
  <div class="modeGrid">${CHARS.map(c=>`<button class="modeBtn" id="shop_${c.id}"><div class="num">${isUnlocked(c)?"OWNED":"◆ "+UNLOCK_COST[c.id]}</div><div class="lbl" style="color:${c.color}">${c.name}</div><div class="desc">${c.title} — ${isUnlocked(c)?"ready to play":c.passive}</div></button>`).join("")}</div>
- <button class="backBtn" id="shopback">‹ BACK</button>`);
+ <button class="backBtn" id="shopback">‹ BACK</button>`, true);
  CHARS.forEach(c=>document.getElementById("shop_"+c.id).onclick=()=>{if(!isUnlocked(c)&&tryUnlock(c))shopCard();});
  document.getElementById("shopback").onclick=toMenu;
 }
@@ -344,6 +354,9 @@ const ROUND_FLAVOR = [
    INPUT
    ============================================================ */
 const held = new Set(), edge = new Set();
+const mouseHeld = new Set(), mouseEdge = new Set();
+const inputDown = k => k && (k.startsWith("Mouse") ? mouseHeld.has(k) : held.has(k));
+const inputEdge = k => k && (k.startsWith("Mouse") ? mouseEdge.has(k) : edge.has(k));
 const BLOCK = new Set(["Space","ArrowUp","ArrowDown","ArrowLeft","ArrowRight",
                        "Slash","Period","Comma","Semicolon","KeyQ","KeyE","KeyF"]);
 
@@ -358,10 +371,13 @@ addEventListener("keydown", e => {
   held.add(e.code); edge.add(e.code);
 }, {passive:false});
 addEventListener("keyup", e => held.delete(e.code));
-addEventListener("blur", () => { held.clear(); edge.clear(); });
+addEventListener("mousedown", e => { if (e.button <= 4){ const k="Mouse"+e.button; mouseHeld.add(k); mouseEdge.add(k); } });
+addEventListener("mouseup", e => { if (e.button <= 4) mouseHeld.delete("Mouse"+e.button); });
+addEventListener("contextmenu", e => { if (mouseHeld.size) e.preventDefault(); });
+addEventListener("blur", () => { held.clear(); edge.clear(); mouseHeld.clear(); mouseEdge.clear(); });
 
-const hasHeld = k => Array.isArray(k) ? k.some(x => held.has(x)) : held.has(k);
-const hasEdge = k => Array.isArray(k) ? k.some(x => edge.has(x)) : edge.has(k);
+const hasHeld = k => Array.isArray(k) ? k.some(x => inputDown(x)) : inputDown(k);
+const hasEdge = k => Array.isArray(k) ? k.some(x => inputEdge(x)) : inputEdge(k);
 
 const SCHEMES = [
   { up:"KeyW", down:"KeyS", left:"KeyA", right:"KeyD",
@@ -371,7 +387,7 @@ const SCHEMES = [
 ];
 
 function blankInput(){
-  return {ax:0, ay:0, fire:false, parry:false, dash:false, special:false, confirm:false, back:false};
+  return {ax:0, ay:0, fire:false, parry:false, shield:false, dash:false, special:false, confirm:false, back:false};
 }
 
 function readInput(schemeIndex){
@@ -382,6 +398,7 @@ function readInput(schemeIndex){
   if (hasHeld(s.down))  i.ay += 1;
   i.fire    = hasEdge(s.fire);
   i.parry   = hasEdge(s.parry);
+  i.shield  = hasEdge(s.shield);
   i.dash    = hasEdge(s.dash);
   i.special = hasEdge(s.special);
   i.confirm = i.fire || edge.has("Enter");
@@ -436,6 +453,7 @@ class Player {
     this.alive = true;
     this.ammo = this.st.ammo; this.reloads = [];
     this.fireCd = 0; this.parryCd = 0; this.parryT = 0;
+    this.shieldCd = 0; this.shieldT = 0;
     this.dashCd = 0; this.dashT = 0;
     this.flash = 0; this.charge = 0; this.ghost = 0; this.burstT = 0;
     this.primed = false;                        // Meran's prism is loaded
@@ -562,6 +580,8 @@ class Game {
     const st = p.st;
     p.fireCd  = Math.max(0, p.fireCd  - dt);
     p.parryCd = Math.max(0, p.parryCd - dt);
+    p.shieldCd = Math.max(0, p.shieldCd - dt);
+    p.shieldT = Math.max(0, p.shieldT - dt);
     p.dashCd  = Math.max(0, p.dashCd  - dt);
     p.parryT  = Math.max(0, p.parryT  - dt);
     p.dashT   = Math.max(0, p.dashT   - dt);
@@ -592,6 +612,9 @@ class Game {
     }
     if (inp.parry && p.parryCd <= 0 && p.ghost <= 0){
       p.parryT = st.parryTime; p.parryCd = st.parryCd;
+    }
+    if (inp.shield && p.shieldCd <= 0 && p.ghost <= 0){
+      p.shieldT = 0.5; p.shieldCd = 3.0;
     }
     if (inp.fire && p.fireCd <= 0 && p.ammo > 0 && p.ghost <= 0){
       p.ammo--; p.fireCd = st.fireCd;
@@ -836,6 +859,12 @@ class Game {
         if (!mo.armed && mo.owner === p.idx) continue;  // your own shot is inert until it arms
         if (d <= p.st.radius + mo.radius){
           if (p.ghost > 0) continue;                    // Silt is letting it through
+          if (p.shieldT > 0){
+            mo.dead = true;
+            p.flash = 0.18;
+            this.burst(p.x, p.y, p.char.color, 18, 190);
+            continue;
+          }
           dead[p.idx] = true; mo.dead = true;
         } else if (mo.armed && !mo.miss[p.idx] && d <= p.st.radius + mo.radius + 18){
           mo.miss[p.idx] = true; p.addCharge(CHG_MISS); // read it, earn it
@@ -882,6 +911,7 @@ class Game {
         p.alive?1:0, p.ammo,
         Math.round(p.parryT*100)/100, Math.round(p.dashCd*100)/100,
         Math.round(p.parryCd*100)/100, Math.round(p.flash*100)/100,
+        Math.round(p.shieldT*100)/100, Math.round(p.shieldCd*100)/100,
         Math.round(p.charge), Math.round(p.ghost*100)/100,
         p.primed?1:0, Math.round(p.burstT*100)/100 ]),
       m:this.motes.map(m => [
@@ -908,7 +938,8 @@ class Game {
       const p = this.players[i];
       p.x=a[0]; p.y=a[1]; p.fx=a[2]; p.fy=a[3]; p.alive=!!a[4];
       p.ammo=a[5]; p.parryT=a[6]; p.dashCd=a[7]; p.parryCd=a[8]; p.flash=a[9];
-      p.charge=a[10]; p.ghost=a[11]; p.primed=!!a[12]; p.burstT=a[13];
+      p.shieldT=a[10]||0; p.shieldCd=a[11]||0;
+      p.charge=a[12]; p.ghost=a[13]; p.primed=!!a[14]; p.burstT=a[15];
     });
     this.temps = s.w.map(t => ({x:t[0], y:t[1], w:t[2], h:t[3], void:!!t[4], ttl:t[5]}));
     this.rings = s.g.map(r => ({x:r[0], y:r[1], t:r[2], life:r[3]}));
@@ -1127,6 +1158,13 @@ function render(g, ui){
     if (!p.alive) continue;
     const col = p.char.color, rad = p.st.radius;
 
+    if (p.shieldT > 0){
+      ctx.globalAlpha = 0.82;
+      ctx.strokeStyle = p.char.color; ctx.lineWidth = 4;
+      ctx.beginPath(); ctx.arc(p.x, p.y, rad + 11, 0, Math.PI*2); ctx.stroke();
+      ctx.globalAlpha = 1;
+    }
+
     if (p.parryT > 0 || p.flash > 0){
       const a = p.parryT > 0 ? 1 : p.flash/0.22;
       ctx.globalAlpha = 0.25 + 0.6*a;
@@ -1214,6 +1252,7 @@ function drawHUD(g, ui){
     }
     const bx = right ? x - 92 : x;
     bar(bx, 80, 92, 3, 1 - p.parryCd/p.st.parryCd, "rgba(255,255,255,.65)");
+    bar(bx, 85, 92, 3, 1 - p.shieldCd/3, p.shieldT > 0 ? p.char.color : "rgba(255,255,255,.35)");
     bar(bx, 87, 92, 3, 1 - p.dashCd/p.st.dashCd,  col);
     bar(bx, 96, 92, 5, p.charge/CHG_FULL, p.ready ? "#ffffff" : "rgba(255,255,255,.45)");
 
@@ -1377,12 +1416,12 @@ function g_picksColor(seat){ return CHARS[SELECT_STATE.cursor[seat]].color; }
 /* ============================================================
    OVERLAY CARDS
    ============================================================ */
-function show(html){ overlay.innerHTML = `<div class="card">${html}</div>`; overlay.classList.add("on"); }
+function show(html, scroll=false){ overlay.innerHTML = `<div class="card">${html}</div>`; overlay.classList.toggle("scrollCard", !!scroll); overlay.classList.add("on"); }
 function hide(){ overlay.classList.remove("on"); overlay.innerHTML = ""; }
 
 function uiStartLocal(){ netMode = "local"; CPU.seats = [false,false]; startSelect(); }
 function uiStartCPU(){ state = ST.DIFF; difficultyCard(); }
-function uiPickDiff(level){ netMode = "local"; CPU.level = level; CPU.seats = [false,true]; startSelect(); }
+function uiPickDiff(level){ netMode = "local"; CPU.level = level; CPU.seats = [false,true]; modeCard(startSelect); }
 
 function menuCard(){
   const unlockedCount = CHARS.filter(isUnlocked).length;
@@ -1390,7 +1429,8 @@ function menuCard(){
     <div class="kicker">Local &amp; online arena shooter</div>
     <h1>SALT&nbsp;LINE</h1>
     <div class="coinTag">◆ ${PROGRESS.coins} salt-coins &nbsp;·&nbsp; ${unlockedCount}/${CHARS.length} fighters unlocked</div>
-    <p>Fast, top-down duels with reflected shots, parries, and dashes.
+    <div class="lobbyBar"><span>SALT LINE <b>DUEL SYSTEM</b></span><span>LOCAL · CPU · ONLINE</span></div>
+    <p>Fast, top-down duels with reflected shots, parries, shields, and dashes.
        First to ${WINS_NEEDED} round wins takes the match, across ${ARENAS.length} arenas.
        Win matches against the CPU to earn coins and unlock the rest of the roster.</p>
     <div class="modeGrid">
@@ -1406,12 +1446,6 @@ function menuCard(){
       <button class="modeBtn" id="m3"><div class="num">3 · ONLINE</div>
         <div class="lbl">Join with a code</div>
         <div class="desc">Paste a code someone hosting sent you</div></button>
-      <button class="modeBtn" id="m5"><div class="num">5 · MODES</div>
-        <div class="lbl">Game modes</div><div class="desc">Classic, Sudden Death, Ammo Frenzy, Closing Tide</div></button>
-      <button class="modeBtn" id="m6"><div class="num">6 · SHOP</div>
-        <div class="lbl">Salt-coin shop</div><div class="desc">Unlock every keeper in one dedicated place</div></button>
-      <button class="modeBtn" id="m7"><div class="num">7 · SETTINGS</div>
-        <div class="lbl">Controls</div><div class="desc">Change shoot, dash, guard, movement and special keys</div></button>
     </div>
     <div class="rule"></div>
     <div class="keys">
@@ -1434,15 +1468,13 @@ function menuCard(){
     </div>
     <p class="hint" style="margin-top:22px">Every shot arms itself after its first wall — after that
        it doesn't care whose it was. Charge your special by parrying, by keeping your own shots
-       alive off the walls, and by slipping past a live one. Grab the glowing pickups for extra ammo.</p>
-  `);
+       alive off the walls, and by slipping past a live one. Grab the glowing pickups for extra ammo.
+       &nbsp;·&nbsp; <b>5</b> modes &nbsp; <b>6</b> shop &nbsp; <b>7</b> settings</p>
+  `, true);
   document.getElementById("m1").onclick = uiStartLocal;
   document.getElementById("m4").onclick = uiStartCPU;
   document.getElementById("m2").onclick = hostFlow;
   document.getElementById("m3").onclick = joinFlow;
-  document.getElementById("m5").onclick = ()=>modeCard();
-  document.getElementById("m6").onclick = shopCard;
-  document.getElementById("m7").onclick = settingsCard;
 }
 
 function difficultyCard(){
@@ -1458,7 +1490,7 @@ function difficultyCard(){
     <button class="diffBtn" id="d1"><b>2 · Keeper</b> &nbsp;—&nbsp; banks a wall, guards about half of what it should &nbsp;·&nbsp; <span style="color:#ffd66b">+${CPU_WIN_COINS[1]} coins</span></button>
     <button class="diffBtn" id="d2"><b>3 · Warden</b> &nbsp;—&nbsp; banks two walls, guards almost everything, never hesitates &nbsp;·&nbsp; <span style="color:#ffd66b">+${CPU_WIN_COINS[2]} coins</span></button>
     <button class="backBtn" id="dback">‹ BACK</button>
-  `);
+  `, true);
   document.getElementById("d0").onclick = () => uiPickDiff(0);
   document.getElementById("d1").onclick = () => uiPickDiff(1);
   document.getElementById("d2").onclick = () => uiPickDiff(2);
@@ -1475,7 +1507,7 @@ function beatCard(i, resultLine, names){
         <span style="color:${p2.color}">${p2.name}</span></h2>
     <p>First to ${WINS_NEEDED} round wins takes the match. Ammo pickups are scattered
        around the arena — grab them to keep firing. Parry to catch a live shot and send
-       it back, dash to close distance or duck out of the line.</p>
+       it back, shield a hit for 0.5s (3s cooldown), dash to close distance or duck out of the line.</p>
     <div class="rule"></div>
     <p class="hint blink">Press <b>fire</b> to drop in — <kbd>Space</kbd>${netMode==="local"?` or <kbd>.</kbd>`:``}</p>
   `);
@@ -1492,7 +1524,7 @@ function epilogueCard(winner, scores, names){
     <p>${w.name} the ${w.title.toLowerCase()} beats ${l.name} the ${l.title.toLowerCase()}, ${scores[winner]}–${scores[1-winner]}.</p>
     ${coinLine}
     <div class="rule"></div>
-    <p class="hint blink">Press <b>fire</b> to play again</p>
+    <p class="hint blink">Press <b>fire</b> to return to the lobby and play again</p>
   `);
 }
 
@@ -1504,9 +1536,9 @@ function epilogueCard(winner, scores, names){
    ============================================================ */
 let netMode = "local";                 // "local" | "host" | "guest"
 let pc = null, ch = null, netNote = "";
-let localSeq  = { f:0, p:0, d:0, s:0, c:0 };   // guest: presses, as counters
-let remoteSeq = { f:0, p:0, d:0, s:0, c:0 };   // host: presses already applied
-let remotePkt = { a:[0,0], f:0, p:0, d:0, s:0, c:0 };
+let localSeq  = { f:0, p:0, h:0, d:0, s:0, c:0 };   // guest: presses, as counters
+let remoteSeq = { f:0, p:0, h:0, d:0, s:0, c:0 };   // host: presses already applied
+let remotePkt = { a:[0,0], f:0, p:0, h:0, d:0, s:0, c:0 };
 let lastUiKey = "";
 
 const enc = o => btoa(String.fromCharCode(...new TextEncoder().encode(JSON.stringify(o)))).replace(/=+$/,"");
@@ -1517,7 +1549,7 @@ function newPC(){
   const p = new RTCPeerConnection({ iceServers:[
     { urls:["stun:stun.l.google.com:19302","stun:global.stun.twilio.com:3478"] } ] });
   p.onconnectionstatechange = () => {
-    if (p.connectionState === "failed" || p.connectionState === "disconnected"){
+    if (p.connectionState === "failed"){
       netNote = "connection lost";
       if (state !== ST.MENU) toMenu();
     }
@@ -1632,8 +1664,8 @@ function netTeardown(){
   try { ch && ch.close(); } catch {}
   try { pc && pc.close(); } catch {}
   ch = null; pc = null; netMode = "local";
-  localSeq = {f:0,p:0,d:0,s:0,c:0}; remoteSeq = {f:0,p:0,d:0,s:0,c:0};
-  remotePkt = { a:[0,0], f:0, p:0, d:0, s:0, c:0 };
+  localSeq = {f:0,p:0,h:0,d:0,s:0,c:0}; remoteSeq = {f:0,p:0,h:0,d:0,s:0,c:0};
+  remotePkt = { a:[0,0], f:0, p:0, h:0, d:0, s:0, c:0 };
 }
 
 function send(o){ if (ch && ch.readyState === "open") { try { ch.send(JSON.stringify(o)); } catch {} } }
@@ -1643,11 +1675,12 @@ function send(o){ if (ch && ch.readyState === "open") { try { ch.send(JSON.strin
 function remoteInput(){
   const i = blankInput();
   i.ax = remotePkt.a[0]; i.ay = remotePkt.a[1];
-  for (const k of ["f","p","d","s","c"]){
+  for (const k of ["f","p","h","d","s","c"]){
     if (remotePkt[k] > remoteSeq[k]){
       remoteSeq[k]++;
       if (k==="f") i.fire = true;
       else if (k==="p"){ i.parry = true; i.back = true; }
+      else if (k==="h") i.shield = true;
       else if (k==="d") i.dash = true;
       else if (k==="s") i.special = true;
       else i.confirm = true;
@@ -1664,10 +1697,11 @@ function guestSend(){
   if (hasHeld(s.up))   ay -= 1; if (hasHeld(s.down))  ay += 1;
   if (hasEdge(s.fire))    localSeq.f++;
   if (hasEdge(s.parry))   localSeq.p++;
+  if (hasEdge(s.shield))  localSeq.h++;
   if (hasEdge(s.dash))    localSeq.d++;
   if (hasEdge(s.special)) localSeq.s++;
   if (hasEdge(s.fire) || edge.has("Enter")) localSeq.c++;
-  send({ i:{ a:[ax,ay], f:localSeq.f, p:localSeq.p, d:localSeq.d, s:localSeq.s, c:localSeq.c } });
+  send({ i:{ a:[ax,ay], f:localSeq.f, p:localSeq.p, h:localSeq.h, d:localSeq.d, s:localSeq.s, c:localSeq.c } });
 }
 
 function guestApply(s, u){
@@ -1699,7 +1733,7 @@ function guestApply(s, u){
 /* ============================================================
    THE CPU
    It plays through exactly the struct a human keyboard fills:
-   eight directions, one fire, one guard, one dash, one special.
+   eight directions, one fire, one shield, one guard, one dash, one special.
    Three rules keep it honest —
      · it reads only what is drawn on the screen,
      · it aims in the same eight directions a keyboard can make,
@@ -1738,7 +1772,7 @@ function cpuDraw(p, a, b){
 }
 
 function cpuMem(){
-  return { t:0, round:-1, dir:[0,0], fire:false, dash:false, special:false, parryTarget:0 };
+  return { t:0, round:-1, dir:[0,0], fire:false, dash:false, special:false, shield:false, parryTarget:0 };
 }
 
 function cpuBlocked(g, x, y, r){
@@ -1942,6 +1976,13 @@ function cpuPlan(g, seat, lvl, m){
     if (p.char.id !== "meran") return;
   }
 
+  // If the shot is too close for a parry, use the short emergency shield.
+  if (worst && worst.t < 0.38 && p.shieldCd <= 0 && p.ghost <= 0 &&
+      cpuDraw(p, worst.id*19, 29) < Math.min(0.98, lvl.parryOdds + 0.18)){
+    m.shield = true;
+    return;
+  }
+
   // Commit to a parry — the press itself is timed frame by frame below.
   if (worst && worst.t < 0.55 && p.parryCd <= 0 && p.ghost <= 0 &&
       cpuDraw(p, worst.id*17, 11) < lvl.parryOdds){
@@ -1986,8 +2027,8 @@ function cpuInput(g, seat, dt){
 
   const i = blankInput();
   i.ax = m.dir[0]; i.ay = m.dir[1];
-  i.fire = m.fire; i.dash = m.dash; i.special = m.special;
-  m.fire = m.dash = m.special = false;              // an edge lasts one frame
+  i.fire = m.fire; i.dash = m.dash; i.special = m.special; i.shield = m.shield;
+  m.fire = m.dash = m.special = m.shield = false;              // an edge lasts one frame
 
   if (m.parryTarget){
     const p = g.players[seat];
@@ -2138,14 +2179,14 @@ function tick(now){
   requestAnimationFrame(tick);
   const dt = Math.min(0.1, (now - last)/1000); last = now;
 
-  if (edge.has("Escape") && state !== ST.MENU){ netNote = ""; toMenu(); edge.clear(); return; }
+  if (edge.has("Escape") && state !== ST.MENU){ netNote = ""; toMenu(); edge.clear(); mouseEdge.clear(); return; }
 
   if (netMode === "guest"){
     guestSend();
     game.stepSparks(dt);
     if (state === ST.PLAY) render(game, { netLabel:"ONLINE — you hold the right seat" });
     else if (state === ST.SELECT) renderSelect(SELECT_STATE, { selHint:"the host takes the left seat" });
-    edge.clear();
+    edge.clear(); mouseEdge.clear();
     return;
   }
 
@@ -2200,7 +2241,7 @@ function tick(now){
         game.step(FIXED, inputs);
         acc -= FIXED;
         if (first){                       // a press fires once, not once per substep
-          for (const i of inputs){ i.fire = i.parry = i.dash = i.special = false; }
+          for (const i of inputs){ i.fire = i.parry = i.shield = i.dash = i.special = false; }
           first = false;
         }
       }
