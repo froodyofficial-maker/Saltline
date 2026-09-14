@@ -75,6 +75,10 @@
     color:var(--dim);font:600 11px ui-monospace,monospace;letter-spacing:.14em;
     padding:8px 14px;cursor:pointer;}
   .backBtn:hover{color:var(--ink);border-color:#4a6a8f;}
+  .utilityRow{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin:18px 0 2px;}
+  .utilityBtn{width:100%;cursor:pointer;background:transparent;border:1px solid #223245;border-radius:7px;padding:10px 12px;color:#a9b6c7;font:600 11px ui-monospace,monospace;letter-spacing:.16em;transition:border-color .15s,background .15s,color .15s;}
+  .utilityBtn:hover{border-color:#4a6a8f;background:#101a26;color:var(--ink);}
+  @media (max-width:520px){.utilityRow{grid-template-columns:1fr;}}
 </style>
 </head>
 <body>
@@ -1447,6 +1451,11 @@ function menuCard(){
         <div class="lbl">Join with a code</div>
         <div class="desc">Paste a code someone hosting sent you</div></button>
     </div>
+    <div class="utilityRow">
+      <button class="utilityBtn" id="m5">GAME MODES</button>
+      <button class="utilityBtn" id="m6">SHOP</button>
+      <button class="utilityBtn" id="m7">SETTINGS</button>
+    </div>
     <div class="rule"></div>
     <div class="keys">
       <section>
@@ -1469,12 +1478,15 @@ function menuCard(){
     <p class="hint" style="margin-top:22px">Every shot arms itself after its first wall — after that
        it doesn't care whose it was. Charge your special by parrying, by keeping your own shots
        alive off the walls, and by slipping past a live one. Grab the glowing pickups for extra ammo.
-       &nbsp;·&nbsp; <b>5</b> modes &nbsp; <b>6</b> shop &nbsp; <b>7</b> settings</p>
+       &nbsp;·&nbsp; Use the controls above, or press <b>5</b>, <b>6</b>, <b>7</b> for modes, shop, and settings</p>
   `, true);
   document.getElementById("m1").onclick = uiStartLocal;
   document.getElementById("m4").onclick = uiStartCPU;
   document.getElementById("m2").onclick = hostFlow;
   document.getElementById("m3").onclick = joinFlow;
+  document.getElementById("m5").onclick = () => modeCard();
+  document.getElementById("m6").onclick = shopCard;
+  document.getElementById("m7").onclick = settingsCard;
 }
 
 function difficultyCard(){
