@@ -780,6 +780,24 @@ class Game {
       if (p.primed){ mo.split = true; p.primed = false; }
     }
 
+    // CPU movement gets an extra collision guard. The planner can only see a
+    // coarse probe of an obstacle, so without this a diagonal correction can
+    // repeatedly push the CPU into a corner; the resolver then nudges it up
+    // every frame, producing the infamous floating/stuck state.
+    const isCPUPlayer = !!(CPU && CPU.seats && CPU.seats[p.idx]);
+    if (isCPUPlayer && p.dashT <= 0){
+      const look = Math.max(8, st.radius * 0.9);
+      if (cpuBlocked(this, p.x + ax*look, p.y + ay*look, st.radius)){
+        const canX = !cpuBlocked(this, p.x + ax*look, p.y, st.radius);
+        const canY = !cpuBlocked(this, p.x, p.y + ay*look, st.radius);
+        if (!canX) ax = 0;
+        if (!canY) ay = 0;
+        // If both components are blocked, stop pushing until the next CPU
+        // planning tick chooses a genuinely open direction.
+        if (!canX && !canY){ ax = 0; ay = 0; p.vx = 0; p.vy = 0; }
+      }
+    }
+
     if (p.dashT <= 0){
       p.vx += ax * st.accel * dt; p.vy += ay * st.accel * dt;
       const damp = Math.exp(-st.friction * dt);
@@ -788,7 +806,18 @@ class Game {
       if (s > st.maxSpeed){ p.vx = p.vx/s*st.maxSpeed; p.vy = p.vy/s*st.maxSpeed; }
     }
 
-    p.x += p.vx * dt; p.y += p.vy * dt;
+    // Move one axis at a time for CPU players. This prevents a corner hit
+    // from turning horizontal movement into a repeated vertical pop.
+    if (isCPUPlayer && p.dashT <= 0){
+      const nx = p.x + p.vx * dt;
+      if (!cpuBlocked(this, nx, p.y, st.radius)) p.x = nx;
+      else p.vx = 0;
+      const ny = p.y + p.vy * dt;
+      if (!cpuBlocked(this, p.x, ny, st.radius)) p.y = ny;
+      else p.vy = 0;
+    } else {
+      p.x += p.vx * dt; p.y += p.vy * dt;
+    }
     this.confinePlayer(p);
   }
 
@@ -2264,6 +2293,28 @@ function cpuSelectInput(seat){
   return i;
 }
 
+/* Mouse/touch character selection.  Keyboard selection remains unchanged. */
+cvs.addEventListener("pointerdown", e => {
+  if (state !== ST.SELECT || netMode === "guest") return;
+  const r = cvs.getBoundingClientRect();
+  const x = (e.clientX - r.left) * W / r.width;
+  const y = (e.clientY - r.top) * H / r.height;
+  const visible = CHARS.map((c,i)=>i).filter(i=>isUnlocked(CHARS[i]));
+  for (let pos=0; pos<visible.length; pos++){
+    const idx = visible[pos], cr = cardRect(idx);
+    if (x >= cr.x && x <= cr.x+cr.w && y >= cr.y && y <= cr.y+cr.h){
+      // In CPU mode the human is P1; in local play clicking a card controls P1.
+      const seat = 0;
+      if (!SELECT_STATE.locked[seat]) SELECT_STATE.cursor[seat] = idx;
+      if (CPU.seats[1]) {
+        // Clicking the chosen card again commits P1, matching the fire key.
+        SELECT_STATE.locked[seat] = true;
+      }
+      break;
+    }
+  }
+}, {passive:true});
+
 /* ============================================================
    STATE MACHINE
    ============================================================ */
@@ -2289,7 +2340,10 @@ function toMenu(){
 }
 
 function startSelect(){
-  SELECT_STATE = { cursor:[0,1], locked:[false,false], lastAx:[0,0], lastAy:[0,0], msg:"", msgT:0 };
+  // Start both cursors on characters that are actually available.
+  const visible = CHARS.map((c,i)=>i).filter(i=>isUnlocked(CHARS[i]));
+  const a = visible[0] ?? 0, b = visible[1] ?? a;
+  SELECT_STATE = { cursor:[a,b], locked:[false,false], lastAx:[0,0], lastAy:[0,0], msg:"", msgT:0 };
   state = ST.SELECT;
   hide();
 }
