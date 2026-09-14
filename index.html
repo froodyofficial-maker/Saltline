@@ -2304,11 +2304,12 @@ cvs.addEventListener("pointerdown", e => {
     const idx = visible[pos], cr = cardRect(idx);
     if (x >= cr.x && x <= cr.x+cr.w && y >= cr.y && y <= cr.y+cr.h){
       // In CPU mode the human is P1; in local play clicking a card controls P1.
+      // First click selects. Clicking the already-selected card again confirms,
+      // so a casual click can never accidentally start the match.
       const seat = 0;
-      if (!SELECT_STATE.locked[seat]) SELECT_STATE.cursor[seat] = idx;
-      if (CPU.seats[1]) {
-        // Clicking the chosen card again commits P1, matching the fire key.
-        SELECT_STATE.locked[seat] = true;
+      if (!SELECT_STATE.locked[seat]) {
+        if (SELECT_STATE.cursor[seat] === idx) SELECT_STATE.locked[seat] = true;
+        else SELECT_STATE.cursor[seat] = idx;
       }
       break;
     }
@@ -2430,8 +2431,10 @@ function endOfRound(){
 const FIXED = 1/120;
 let acc = 0, last = performance.now();
 
+let keepInputEdge = false;
 function tick(now){
   requestAnimationFrame(tick);
+  keepInputEdge = false;
   const dt = Math.min(0.1, (now - last)/1000); last = now;
 
   if (edge.has("Escape") && state !== ST.MENU){ netNote = ""; toMenu(); edge.clear(); mouseEdge.clear(); return; }
@@ -2492,8 +2495,9 @@ function tick(now){
     case ST.PLAY: {
       const inputs = seatInputs();
       acc += dt;
-      let first = true;
+      let first = true, stepped = false;
       while (acc >= FIXED){
+        stepped = true;
         game.step(FIXED, inputs);
         acc -= FIXED;
         if (first){                       // a press fires once, not once per substep
@@ -2503,6 +2507,11 @@ function tick(now){
       }
       render(game, { netLabel: netMode === "host" ? "ONLINE — you hold the left seat" : "" });
       if (game.result && game.overTimer > 1.8) endOfRound();
+      // If this animation frame did not reach a fixed simulation step, keep
+      // keyboard/mouse edge presses alive for the next frame. Otherwise a
+      // fast frame could swallow the player's fire/parry/dash press while
+      // the CPU's timed actions still appeared to work.
+      if (!stepped) keepInputEdge = true;
       break;
     }
 
@@ -2512,7 +2521,7 @@ function tick(now){
   }
 
   if (netMode === "host") send({ s:game.snapshot(), u:uiPacket() });
-  edge.clear();
+  if (!keepInputEdge) { edge.clear(); mouseEdge.clear(); }
 }
 
 menuCard();
