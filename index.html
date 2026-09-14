@@ -202,15 +202,24 @@ const UNLOCK_COST = { ines:0, cato:0, meran:120, odall:150, silt:150, vane:180, 
 const CPU_WIN_COINS = [40, 70, 110];     // by CPU_LEVELS index: Apprentice, Keeper, Warden
 
 const PROGRESS_KEY = "saltline_progress_v1";
+const FREE_MAP_COUNT = 5;
+const MAP_COSTS = [0,0,0,0,0,120,150,180,220,250];
+let MAP_CATALOG = [];
+function mapIdFor(i){ return "map_" + i; }
+function defaultMapIds(){ return Array.from({length:FREE_MAP_COUNT}, (_,i)=>mapIdFor(i)); }
 function loadProgress(){
   try {
     const raw = localStorage.getItem(PROGRESS_KEY);
     if (raw){
       const p = JSON.parse(raw);
-      if (p && Array.isArray(p.unlocked) && typeof p.coins === "number") return p;
+      if (p && Array.isArray(p.unlocked) && typeof p.coins === "number") {
+        p.maps = Array.isArray(p.maps) ? p.maps : defaultMapIds();
+        p.maps = [...new Set([...defaultMapIds(), ...p.maps])];
+        return p;
+      }
     }
   } catch {}
-  return { coins:0, unlocked:["ines","cato"] };
+  return { coins:0, unlocked:["ines","cato"], maps:defaultMapIds() };
 }
 function saveProgress(){
   try { localStorage.setItem(PROGRESS_KEY, JSON.stringify(PROGRESS)); } catch {}
@@ -263,10 +272,15 @@ function settingsCard(){
  document.getElementById("setback").onclick=toMenu;
 }
 function shopCard(){
- show(`<div class="kicker">Salt-coins</div><h2>Shop</h2><div class="coinTag">◆ ${PROGRESS.coins} salt-coins</div><p>Unlock fighters here. The character select still works too.</p>
+ show(`<div class="kicker">Salt-coins</div><h2>Shop</h2><div class="coinTag">◆ ${PROGRESS.coins} salt-coins</div>
+ <p>Unlock fighters and maps with coins earned from CPU victories. The first ${FREE_MAP_COUNT} maps are always free and stay in the standard rotation.</p>
+ <div class="kicker" style="margin-top:26px">Fighters</div>
  <div class="modeGrid">${CHARS.map(c=>`<button class="modeBtn" id="shop_${c.id}"><div class="num">${isUnlocked(c)?"OWNED":"◆ "+UNLOCK_COST[c.id]}</div><div class="lbl" style="color:${c.color}">${c.name}</div><div class="desc">${c.title} — ${isUnlocked(c)?"ready to play":c.passive}</div></button>`).join("")}</div>
+ <div class="kicker" style="margin-top:30px">Maps</div>
+ <div class="modeGrid">${ARENAS.map((a,i)=>{const owned=isMapUnlocked(a);return `<button class="modeBtn" id="mapshop_${i}"><div class="num">${owned?"IN ROTATION":"◆ "+a.mapCost}</div><div class="lbl">${a.name}</div><div class="desc">${i<FREE_MAP_COUNT?"FREE · STANDARD ROTATION":owned?"OWNED · ADDED TO ROTATION":"BUY TO ADD TO ROTATION"}</div></button>`;}).join("")}</div>
  <button class="backBtn" id="shopback">‹ BACK</button>`, true);
  CHARS.forEach(c=>document.getElementById("shop_"+c.id).onclick=()=>{if(!isUnlocked(c)&&tryUnlock(c))shopCard();});
+ ARENAS.forEach((a,i)=>document.getElementById("mapshop_"+i).onclick=()=>{if(!isMapUnlocked(a)&&tryUnlockMap(a))shopCard();});
  document.getElementById("shopback").onclick=toMenu;
 }
 
@@ -280,6 +294,25 @@ function tryUnlock(c){
   saveProgress();
   return true;
 }
+function isMapUnlocked(a){ return a && (a.mapIndex < FREE_MAP_COUNT || PROGRESS.maps.includes(a.id)); }
+function tryUnlockMap(a){
+  if (isMapUnlocked(a)) return true;
+  const cost = a.mapCost || 0;
+  if (PROGRESS.coins < cost) return false;
+  PROGRESS.coins -= cost;
+  PROGRESS.maps.push(a.id);
+  PROGRESS.maps = [...new Set(PROGRESS.maps)];
+  saveProgress();
+  return true;
+}
+function mapRotation(){
+  return ARENAS.filter(a => isMapUnlocked(a));
+}
+function arenaForRound(round){
+  const pool = mapRotation();
+  return pool[(MATCH_NO * 3 + round) % pool.length] || ARENAS[0];
+}
+function arenaById(id){ return ARENAS.find(a => a.id === id) || null; }
 
 const DEFAULT_PICKS = [0, 1];           // Ines and Cato hold the tower by default
 
@@ -345,6 +378,13 @@ const ARENAS = [
     spawns:[[120,480],[840,120]],
     pickups:[[840,480],[120,120]] },
 ];
+
+ARENAS.forEach((a,i) => {
+  a.mapIndex = i;
+  a.id = mapIdFor(i);
+  a.mapCost = MAP_COSTS[i] ?? 0;
+});
+MAP_CATALOG = ARENAS;
 
 const ROUND_FLAVOR = [
   "clean shot",
@@ -469,6 +509,7 @@ class Player {
 }
 
 let MOTE_SEQ = 0;
+let MATCH_NO = 0;
 class Mote {
   constructor(p, x, y, vx, vy){
     const st = p.st;
@@ -500,13 +541,13 @@ class Game {
   }
   get picks(){ return [this.players[0].charId, this.players[1].charId]; }
 
-  loadRound(i){
+  loadRound(i, forcedArena=null){
     this.round = i;
     MOTE_SEQ = 0;          // ids restart each round: the CPU reads them, and its
                            // answer to a position must not depend on how many
                            // motes the page happened to spawn before this one
 
-    this.arena = ARENAS[i % ARENAS.length];
+    this.arena = forcedArena || arenaForRound(i);
     this.walls = this.arena.walls.map(w => ({...w}));
     this.temps = [];                 // walls conjured by specials
     this.rings = [];
@@ -907,7 +948,7 @@ class Game {
   /* ---------- network snapshot (host -> guest) ---------- */
   snapshot(){
     return {
-      r:this.round, t:this.time, e:this.encroach, sc:this.scores, pk:this.picks,
+      r:this.round, map:this.arena.id, t:this.time, e:this.encroach, sc:this.scores, pk:this.picks,
       res:this.result ? this.result.winner : null, cd:Math.round(this.countdown*100)/100,
       p:this.players.map(p => [
         Math.round(p.x*10)/10, Math.round(p.y*10)/10,
@@ -933,7 +974,8 @@ class Game {
       this.setPicks(s.pk);
       this.players.forEach(p => { p.char = CHARS[p.charId]; p.st = p.char.st; });
     }
-    if (s.r !== this.round) this.loadRound(s.r);
+    const snapArena = arenaById(s.map);
+    if (s.r !== this.round || (snapArena && this.arena.id !== snapArena.id)) this.loadRound(s.r, snapArena);
     this.time = s.t; this.encroach = s.e; this.scores = s.sc;
     this.shake = s.sh; this.countdown = s.cd || 0;
     this.result = s.res === null ? null : { winner:s.res };
@@ -1326,9 +1368,10 @@ function renderSelect(sel, ui){
   ctx.fillStyle = "#ffd66b";
   ctx.fillText("◆ " + PROGRESS.coins + " salt-coins", W-24, 44);
 
-  for (let i=0;i<CHARS.length;i++){
-    const c = CHARS[i], r = cardRect(i);
-    const unlocked = isUnlocked(c);
+  const visible = CHARS.map((c,i)=>({c,i})).filter(x => isUnlocked(x.c));
+  for (let vi=0;vi<visible.length;vi++){
+    const {c,i} = visible[vi], r = cardRect(vi);
+    const unlocked = true;
     const chosenBy = [0,1].filter(s => sel.cursor[s] === i);
     const lockedBy = chosenBy.filter(s => sel.locked[s]);
 
@@ -1337,10 +1380,8 @@ function renderSelect(sel, ui){
     ctx.strokeStyle = "rgba(120,155,195,.22)"; ctx.lineWidth = 1;
     ctx.strokeRect(r.x+.5, r.y+.5, r.w-1, r.h-1);
 
-    if (!unlocked){
-      ctx.fillStyle = "rgba(4,6,10,.6)";
-      ctx.fillRect(r.x, r.y, r.w, r.h);
-    }
+    // Only owned fighters are shown. Locked fighters are intentionally absent
+    // from this screen; they can be discovered and purchased in the Shop.
 
     // the keeper's own light
     ctx.shadowBlur = 18; ctx.shadowColor = c.color;
@@ -1354,25 +1395,13 @@ function renderSelect(sel, ui){
 
     ctx.textAlign = "left";
     ctx.font = "600 15px ui-monospace,SFMono-Regular,Menlo,monospace";
-    ctx.fillStyle = unlocked ? c.color : "rgba(200,215,235,.4)";
+    ctx.fillStyle = c.color;
     ctx.fillText(c.name, r.x+50, r.y+18);
     ctx.font = "500 10px ui-monospace,SFMono-Regular,Menlo,monospace";
     ctx.fillStyle = "rgba(200,215,235,.5)";
     ctx.fillText(c.title.toUpperCase(), r.x+50, r.y+36);
 
-    if (!unlocked){
-      ctx.textAlign = "center";
-      ctx.font = "600 22px ui-monospace,SFMono-Regular,Menlo,monospace";
-      ctx.fillStyle = "rgba(220,230,245,.55)";
-      ctx.fillText("🔒", r.x + r.w/2, r.y + 66);
-      ctx.font = "600 12px ui-monospace,SFMono-Regular,Menlo,monospace";
-      ctx.fillStyle = "#ffd66b";
-      ctx.fillText("◆ " + UNLOCK_COST[c.id], r.x + r.w/2, r.y + 94);
-      ctx.font = "500 10px ui-monospace,SFMono-Regular,Menlo,monospace";
-      ctx.fillStyle = "rgba(200,215,235,.45)";
-      ctx.fillText("fire to unlock", r.x + r.w/2, r.y + 112);
-      ctx.textAlign = "left";
-    } else {
+    {
       ctx.font = "500 10.5px ui-monospace,SFMono-Regular,Menlo,monospace";
       ctx.fillStyle = "rgba(205,220,238,.78)";
       wrapText(c.passive, r.x+14, r.y+58, r.w-28, 13, 3);
@@ -1432,10 +1461,10 @@ function menuCard(){
   show(`
     <div class="kicker">Local &amp; online arena shooter</div>
     <h1>SALT&nbsp;LINE</h1>
-    <div class="coinTag">◆ ${PROGRESS.coins} salt-coins &nbsp;·&nbsp; ${unlockedCount}/${CHARS.length} fighters unlocked</div>
+    <div class="coinTag">◆ ${PROGRESS.coins} salt-coins &nbsp;·&nbsp; ${unlockedCount}/${CHARS.length} fighters &nbsp;·&nbsp; ${mapRotation().length}/${ARENAS.length} maps in rotation</div>
     <div class="lobbyBar"><span>SALT LINE <b>DUEL SYSTEM</b></span><span>LOCAL · CPU · ONLINE</span></div>
     <p>Fast, top-down duels with reflected shots, parries, shields, and dashes.
-       First to ${WINS_NEEDED} round wins takes the match, across ${ARENAS.length} arenas.
+       First to ${WINS_NEEDED} round wins takes the match, with ${FREE_MAP_COUNT} free maps in the standard rotation plus any maps you buy.
        Win matches against the CPU to earn coins and unlock the rest of the roster.</p>
     <div class="modeGrid">
       <button class="modeBtn" id="m1"><div class="num">1 · LOCAL</div>
@@ -2067,13 +2096,15 @@ function cpuSelectInput(seat){
   if (now < CPU.selT) return i;
   CPU.selT = now + 240;                              // a step every 240ms, so it can be watched
 
-  const target = Math.max(0, CHARS.findIndex(c =>
-    c.id === CPU_COUNTER[CHARS[SELECT_STATE.cursor[human]].id]));
+  const visible = CHARS.map((c,i)=>i).filter(i => isUnlocked(CHARS[i]));
+  const target = Math.max(0, visible.find(i =>
+    CHARS[i].id === CPU_COUNTER[CHARS[SELECT_STATE.cursor[human]].id]) ?? visible[0]);
   const cur = SELECT_STATE.cursor[seat];
   if (cur === target){ i.fire = true; return i; }
 
-  const cc = cur % SEL_COLS, cr = Math.floor(cur / SEL_COLS);
-  const tc = target % SEL_COLS, tr = Math.floor(target / SEL_COLS);
+  const cp = Math.max(0, visible.indexOf(cur)), tp = Math.max(0, visible.indexOf(target));
+  const cc = cp % SEL_COLS, cr = Math.floor(cp / SEL_COLS);
+  const tc = tp % SEL_COLS, tr = Math.floor(tp / SEL_COLS);
   if (cc !== tc) i.ax = Math.sign(tc - cc); else i.ay = Math.sign(tr - cr);
   return i;
 }
@@ -2117,17 +2148,19 @@ function stepSelect(inputs){
     }
     // move one card per press, not one per frame
     const ax = Math.sign(inp.ax), ay = Math.sign(inp.ay);
-    let i = SELECT_STATE.cursor[s];
+    const visible = CHARS.map((c,i)=>i).filter(i => isUnlocked(CHARS[i]));
+    let pos = Math.max(0, visible.indexOf(SELECT_STATE.cursor[s]));
     if (ax !== 0 && ax !== SELECT_STATE.lastAx[s]){
-      const col = i % SEL_COLS, row = Math.floor(i / SEL_COLS);
-      i = row*SEL_COLS + (col + ax + SEL_COLS) % SEL_COLS;
+      const col = pos % SEL_COLS, row = Math.floor(pos / SEL_COLS);
+      pos = row*SEL_COLS + (col + ax + SEL_COLS) % SEL_COLS;
     }
     if (ay !== 0 && ay !== SELECT_STATE.lastAy[s]){
-      const rows = Math.ceil(CHARS.length / SEL_COLS);
-      const col = i % SEL_COLS, row = Math.floor(i / SEL_COLS);
-      i = ((row + ay + rows) % rows)*SEL_COLS + col;
+      const rows = Math.max(1, Math.ceil(visible.length / SEL_COLS));
+      const col = pos % SEL_COLS, row = Math.floor(pos / SEL_COLS);
+      pos = ((row + ay + rows) % rows)*SEL_COLS + col;
     }
-    SELECT_STATE.cursor[s] = clamp(i, 0, CHARS.length-1);
+    pos = clamp(pos, 0, visible.length-1);
+    SELECT_STATE.cursor[s] = visible[pos] ?? 0;
     SELECT_STATE.lastAx[s] = ax; SELECT_STATE.lastAy[s] = ay;
     if (inp.fire){
       const c = CHARS[SELECT_STATE.cursor[s]];
@@ -2141,6 +2174,7 @@ function stepSelect(inputs){
 }
 
 function beginMatch(){
+  MATCH_NO++;
   game = new Game(SELECT_STATE.cursor.slice());
   cardIdx = 0; resultLine = "";
   state = ST.CARD;
