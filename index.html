@@ -1,13 +1,3 @@
-
-
-Skip to content
-Using DPS International Mail with screen readers
-Conversations
- 
-Program Policies
-Powered by Google
-Last account activity: 2 minutes ago
-Details
 <!doctype html>
 <html lang="en">
 <head>
@@ -29,14 +19,27 @@ Details
   canvas{display:block;image-rendering:auto;background:#06090f;
     box-shadow:0 0 0 1px #16202c, 0 24px 80px rgba(0,0,0,.8);}
   #overlay{position:absolute;inset:0;display:none;align-items:center;justify-content:center;
-    padding:6vh 6vw;background:radial-gradient(ellipse at 50% 40%, rgba(8,12,20,.86), rgba(4,6,10,.97));
-    backdrop-filter:blur(2px);overflow:auto;}
+    padding:6vh 6vw;background:radial-gradient(ellipse at 50% 40%, rgba(6,9,14,.42), rgba(3,5,9,.74));
+    backdrop-filter:blur(1px);overflow:auto;}
   #overlay.on{display:flex;}
-  .card{max-width:760px;width:100%;animation:rise .5s ease both;}
+  .card{max-width:760px;width:100%;animation:rise .5s ease both;
+    background:linear-gradient(180deg, rgba(10,16,25,.82), rgba(7,11,18,.9));
+    border:1px solid rgba(255,214,107,.16);border-radius:16px;
+    padding:clamp(26px,4vw,44px) clamp(26px,4.5vw,50px);
+    box-shadow:0 0 0 1px rgba(120,170,235,.05) inset,
+               0 30px 90px rgba(0,0,0,.65),
+               0 0 60px rgba(255,214,107,.05);
+    backdrop-filter:blur(10px);}
   @keyframes rise{from{opacity:0;transform:translateY(14px);}to{opacity:1;transform:none;}}
   .kicker{font:600 12px/1 ui-monospace,SFMono-Regular,Menlo,monospace;
-    letter-spacing:.34em;text-transform:uppercase;color:var(--dim);margin-bottom:18px;}
-  h1{font-size:clamp(44px,9vw,96px);line-height:.92;margin:0 0 10px;letter-spacing:.06em;font-weight:500;}
+    letter-spacing:.34em;text-transform:uppercase;color:var(--dim);margin-bottom:18px;
+    display:flex;align-items:center;gap:10px;}
+  .kicker::before{content:"";width:7px;height:7px;border-radius:50%;background:#ffd66b;
+    box-shadow:0 0 10px 2px rgba(255,214,107,.7);flex:none;}
+  h1{font-size:clamp(44px,9vw,96px);line-height:.92;margin:0 0 10px;letter-spacing:.06em;font-weight:500;
+    background:linear-gradient(180deg,#f4f8ff 0%,#c7d6ea 55%,#8fa6c2 100%);
+    -webkit-background-clip:text;background-clip:text;color:transparent;
+    text-shadow:0 0 46px rgba(150,190,255,.35);}
   h2{font-size:clamp(24px,4vw,38px);line-height:1.1;margin:0 0 18px;font-weight:500;letter-spacing:.02em;}
   p{font-size:clamp(15px,1.9vw,19px);line-height:1.62;margin:0 0 14px;color:#c3cedd;max-width:62ch;}
   p.speaker{font:600 12px/1 ui-monospace,SFMono-Regular,Menlo,monospace;letter-spacing:.28em;
@@ -56,6 +59,33 @@ Details
   .blink{animation:blink 1.6s ease-in-out infinite;}
   @keyframes blink{0%,100%{opacity:.45}50%{opacity:1}}
   @media (prefers-reduced-motion:reduce){.card,.blink{animation:none;}}
+
+  .coinTag{display:inline-block;font:600 13px/1 ui-monospace,monospace;letter-spacing:.06em;
+    color:#ffd66b;background:rgba(255,214,107,.1);border:1px solid rgba(255,214,107,.3);
+    border-radius:20px;padding:6px 14px;margin-bottom:20px;}
+  .modeGrid{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin:22px 0 6px;}
+  @media (max-width:640px){.modeGrid{grid-template-columns:1fr;}}
+  .modeBtn{display:flex;align-items:flex-start;gap:14px;text-align:left;width:100%;cursor:pointer;
+    background:rgba(16,26,38,.72);border:1px solid #223245;border-left:3px solid #3a4a5e;
+    border-radius:10px;padding:16px 18px;
+    color:var(--ink);font-family:inherit;transition:border-color .15s,transform .15s,background .15s,box-shadow .15s;}
+  .modeBtn:hover{border-color:#4a6a8f;border-left-color:#ffd66b;background:#132234;
+    transform:translateY(-2px);box-shadow:0 10px 30px rgba(0,0,0,.4);}
+  .modeBtn:active{transform:translateY(0);}
+  .modeBtn .icon{font-size:22px;line-height:1;flex:none;margin-top:1px;
+    filter:drop-shadow(0 0 8px rgba(255,214,107,.35));}
+  .modeBtn .num{font:600 11px ui-monospace,monospace;letter-spacing:.2em;color:var(--dim);}
+  .modeBtn .lbl{font-size:17px;margin:5px 0 3px;letter-spacing:.01em;}
+  .modeBtn .desc{font:500 12px/1.4 ui-monospace,monospace;color:#8b98a9;letter-spacing:.01em;}
+  .diffBtn{display:block;width:100%;text-align:left;cursor:pointer;
+    background:#101a26;border:1px solid #223245;border-radius:8px;padding:12px 16px;margin-top:10px;
+    color:var(--ink);font-family:inherit;transition:border-color .15s,background .15s;}
+  .diffBtn:hover{border-color:#4a6a8f;background:#132234;}
+  .diffBtn b{color:#e8eef7;}
+  .backBtn{margin-top:20px;background:none;border:1px solid #223245;border-radius:6px;
+    color:var(--dim);font:600 11px ui-monospace,monospace;letter-spacing:.14em;
+    padding:8px 14px;cursor:pointer;}
+  .backBtn:hover{color:var(--ink);border-color:#4a6a8f;}
 </style>
 </head>
 <body>
@@ -99,7 +129,7 @@ fitCanvas();
 const BASE = {
   accel:2600, maxSpeed:265, friction:9.0, radius:13,
   dashSpeed:760, dashTime:0.16, dashCd:1.35,
-  ammo:3, fireCd:0.22, reload:0.9,
+  ammo:5, fireCd:0.22, reload:0.9,
   moteSpeed:520, moteRadius:5, moteBounces:5, moteLife:6.0, armTime:0.45,
   parryTime:0.14, parryCd:0.9, parryReach:38, parryArc:Math.PI*0.62, returnSpeed:660,
   bounceGain:1,                      // velocity multiplier applied on each bounce
@@ -138,7 +168,7 @@ const CHARS = [
     passive:"Annealed — a wide guard that recovers fast, but only two motes.",
     special:"PRISM", specialText:"Your next mote splits in three on its first wall.",
     ending:"blows a lens so true the beam reaches the far shore, and is answered.",
-    stats:{ ammo:2, parryArc:Math.PI*0.92, parryCd:0.6, parryReach:44 } },
+    stats:{ ammo:3, parryArc:Math.PI*0.92, parryCd:0.6, parryReach:44 } },
 
   { id:"odall", name:"ODALL", title:"The Wrecker", color:"#ff8a6b",
     passive:"Heavy glass — slow, fat motes that ride the walls far longer.",
@@ -172,74 +202,144 @@ const CHARS = [
 ];
 CHARS.forEach(c => c.st = Object.assign({}, BASE, c.stats));
 
-const DEFAULT_PICKS = [0, 1];           // Ines and Cato hold the tower in the story
+/* ---------- unlocks ----------
+   Ines and Cato are free. Everyone else is bought with salt-coins,
+   earned by beating the CPU. */
+const UNLOCK_COST = { ines:0, cato:0, meran:120, odall:150, silt:150, vane:180, keel:180, auger:220 };
+const CPU_WIN_COINS = [40, 70, 110];     // by CPU_LEVELS index: Apprentice, Keeper, Warden
+
+const PROGRESS_KEY = "saltline_progress_v1";
+function loadProgress(){
+  try {
+    const raw = localStorage.getItem(PROGRESS_KEY);
+    if (raw){
+      const p = JSON.parse(raw);
+      if (p && Array.isArray(p.unlocked) && typeof p.coins === "number") return p;
+    }
+  } catch {}
+  return { coins:0, unlocked:["ines","cato"] };
+}
+function saveProgress(){
+  try { localStorage.setItem(PROGRESS_KEY, JSON.stringify(PROGRESS)); } catch {}
+}
+let PROGRESS = loadProgress();
+let LAST_COINS_EARNED = 0;
+
+function isUnlocked(c){ return UNLOCK_COST[c.id] === 0 || PROGRESS.unlocked.includes(c.id); }
+function tryUnlock(c){
+  if (isUnlocked(c)) return true;
+  const cost = UNLOCK_COST[c.id];
+  if (PROGRESS.coins < cost) return false;
+  PROGRESS.coins -= cost;
+  PROGRESS.unlocked.push(c.id);
+  saveProgress();
+  return true;
+}
+
+const DEFAULT_PICKS = [0, 1];           // Ines and Cato hold the tower by default
 
 /* ---------- arenas (all 180deg-rotationally symmetric: no side has an edge) ---------- */
 const ARENAS = [
   { name:"The Lamp Room",
     walls:[ {x:430,y:250,w:100,h:100},
             {x:150,y:120,w:40,h:140}, {x:770,y:340,w:40,h:140} ],
-    spawns:[[120,300],[840,300]] },
+    spawns:[[120,300],[840,300]],
+    pickups:[[480,150],[480,450]] },
 
   { name:"The Cistern",
     walls:[ {x:240,y:140,w:120,h:40}, {x:600,y:420,w:120,h:40},
             {x:240,y:420,w:120,h:40}, {x:600,y:140,w:120,h:40},
             {x:420,y:260,w:120,h:80, void:true} ],
-    spawns:[[120,120],[840,480]] },
+    spawns:[[120,120],[840,480]],
+    pickups:[[840,120],[120,480]] },
 
   { name:"The Salt Line",
     walls:[ {x:200,y:200,w:560,h:24}, {x:200,y:376,w:560,h:24},
             {x:80,y:280,w:24,h:40},   {x:856,y:280,w:24,h:40} ],
-    spawns:[[120,100],[840,500]] },
+    spawns:[[120,100],[840,500]],
+    pickups:[[480,180],[480,420]] },
 
   { name:"The Door Below",
     walls:[ {x:300,y:100,w:40,h:180}, {x:620,y:320,w:40,h:180},
             {x:140,y:380,w:120,h:24}, {x:700,y:196,w:120,h:24},
             {x:440,y:270,w:80,h:60, void:true} ],
-    spawns:[[120,300],[840,300]] },
+    spawns:[[120,300],[840,300]],
+    pickups:[[480,80],[480,520]] },
 
   { name:"One Light",
     walls:[ {x:380,y:180,w:40,h:40}, {x:540,y:180,w:40,h:40},
             {x:380,y:380,w:40,h:40}, {x:540,y:380,w:40,h:40},
             {x:60,y:240,w:24,h:120},  {x:876,y:240,w:24,h:120} ],
-    spawns:[[120,120],[840,480]] },
-];
+    spawns:[[120,120],[840,480]],
+    pickups:[[480,60],[480,540]] },
 
-/* ---------- story ----------
-   The logs belong to whoever is holding each seat, so they name nobody. */
-const BEATS = [
-  { head:"Dusk, the first night", who:0, lines:[
-    "The lamp takes one keeper. The Order was clear about that, and the Order is thirty years drowned, so the rule is only habit now. Habit is most of what holds this coast together.",
-    "So we do it the old way. Mirrors, at dusk, until one of us can't stand. The loser walks the salt line inland at low tide and does not come back.",
-    "I packed the other bag this morning. They'll call that arrogance. It's just hope that I won't have to hand it over." ]},
+  { name:"The Boathouse",
+    walls:[ {x:260,y:220,w:160,h:28}, {x:540,y:352,w:160,h:28},
+            {x:120,y:440,w:100,h:24}, {x:740,y:136,w:100,h:24} ],
+    spawns:[[120,120],[840,480]],
+    pickups:[[840,300],[120,300]] },
 
-  { head:"The ledger", who:1, lines:[
-    "The one across the room fights like the tower is already theirs. It isn't.",
-    "I counted the oil tonight because I couldn't sleep. Nineteen drums in the ledger. Eleven in the cellar. Someone has been burning it somewhere that isn't up here.",
-    "The lamp doesn't drink that much. Nothing above the waterline does." ]},
+  { name:"Low Tide",
+    walls:[ {x:300,y:266,w:360,h:68, void:true},
+            {x:120,y:150,w:24,h:100}, {x:816,y:350,w:24,h:100},
+            {x:300,y:470,w:100,h:24}, {x:560,y:106,w:100,h:24} ],
+    spawns:[[120,470],[840,130]],
+    pickups:[[230,150],[730,450]] },
 
-  { head:"Under the cistern", who:0, lines:[
-    "There is a door below the cistern with the first keeper's mark cut into it, and warmth coming through the gap at the bottom.",
-    "Warm. In a flooded cellar. In February.",
-    "I put my hand flat against it and something on the other side went quiet. Not away — quiet. The way you go quiet when you're listening for someone to do it again." ]},
+  { name:"The Signal Fire",
+    walls:[ {x:462,y:262,w:36,h:76},
+            {x:220,y:150,w:140,h:24}, {x:600,y:426,w:140,h:24},
+            {x:220,y:426,w:140,h:24}, {x:600,y:150,w:140,h:24} ],
+    spawns:[[120,300],[840,300]],
+    pickups:[[480,110],[480,490]] },
 
-  { head:"What the Order actually wrote", who:1, lines:[
-    "Found it water-stained at the back of the log, in a hand older than the flood:",
-    "“The light is not for the ships. Keep it lit and keep it single. Two lights wake it.”",
-    "That's the duel. Not the honour of the tower, not the lineage, none of the things we were told to be proud of. If we both stayed we would both keep lamps, and then —" ]},
+  { name:"Drowned Chapel",
+    walls:[ {x:160,y:180,w:120,h:32}, {x:680,y:388,w:120,h:32},
+            {x:420,y:100,w:120,h:32}, {x:420,y:468,w:120,h:32},
+            {x:420,y:284,w:120,h:32, void:true} ],
+    spawns:[[120,480],[840,120]],
+    pickups:[[840,480],[120,120]] },
 
-  { head:"The last dusk", who:0, lines:[
-    "So it was never a prize. It was a way of rationing us.",
-    "Whoever wins tonight sits alone above that door for the rest of their life. Whoever loses gets the road, and the road is the mercy.",
-    "Funny, how many years I spent trying to win." ]},
+  { name:"Salt Stair",
+    walls:[ {x:200,y:160,w:160,h:28}, {x:600,y:412,w:160,h:28},
+            {x:120,y:420,w:28,h:140}, {x:812,y:40,w:28,h:140} ],
+    spawns:[[100,500],[860,100]],
+    pickups:[[480,150],[480,450]] },
+
+  { name:"The Ferry Crossing",
+    walls:[ {x:340,y:280,w:280,h:40, void:true},
+            {x:80,y:120,w:120,h:24}, {x:760,y:456,w:120,h:24},
+            {x:80,y:456,w:120,h:24}, {x:760,y:120,w:120,h:24} ],
+    spawns:[[120,300],[840,300]],
+    pickups:[[300,300],[660,300]] },
+
+  { name:"The Watchtower",
+    walls:[ {x:440,y:270,w:80,h:60},
+            {x:160,y:100,w:32,h:160}, {x:768,y:340,w:32,h:160},
+            {x:160,y:340,w:32,h:160}, {x:768,y:100,w:32,h:160} ],
+    spawns:[[100,300],[860,300]],
+    pickups:[[300,150],[660,450]] },
+
+  { name:"The Undertow",
+    walls:[ {x:300,y:60,w:40,h:140}, {x:620,y:400,w:40,h:140},
+            {x:300,y:400,w:40,h:140}, {x:620,y:60,w:40,h:140},
+            {x:460,y:280,w:40,h:40, void:true} ],
+    spawns:[[140,150],[820,450]],
+    pickups:[[140,450],[820,150]] },
+
+  { name:"Harbor Light",
+    walls:[ {x:60,y:270,w:100,h:60}, {x:800,y:270,w:100,h:60},
+            {x:430,y:130,w:100,h:28}, {x:430,y:442,w:100,h:28} ],
+    spawns:[[300,120],[660,480]],
+    pickups:[[300,480],[660,120]] },
 ];
 
 const ROUND_FLAVOR = [
-  "the mirror holds",
-  "a clean line",
-  "read, and answered",
-  "one lamp, one keeper",
-  "the coast goes dark for a breath",
+  "clean shot",
+  "sharp read",
+  "clutch parry",
+  "no contest",
+  "down to the wire",
 ];
 
 /* ============================================================
@@ -262,14 +362,31 @@ addEventListener("keydown", e => {
 addEventListener("keyup", e => held.delete(e.code));
 addEventListener("blur", () => { held.clear(); edge.clear(); });
 
+/* Player one fires and guards with the mouse. The click targets the
+   canvas itself (movement/aim stays on WASD — this never adds free-look),
+   and the right-click context menu is suppressed so RMB is free to use
+   as a control everywhere on the page. */
+const MOUSE_CODE = { 0:"Mouse0", 2:"Mouse2" };
+addEventListener("contextmenu", e => e.preventDefault());
+addEventListener("mousedown", e => {
+  const code = MOUSE_CODE[e.button];
+  if (!code) return;
+  e.preventDefault();
+  held.add(code); edge.add(code);
+});
+addEventListener("mouseup", e => {
+  const code = MOUSE_CODE[e.button];
+  if (code) held.delete(code);
+});
+
 const hasHeld = k => Array.isArray(k) ? k.some(x => held.has(x)) : held.has(k);
 const hasEdge = k => Array.isArray(k) ? k.some(x => edge.has(x)) : edge.has(k);
 
 const SCHEMES = [
   { up:"KeyW", down:"KeyS", left:"KeyA", right:"KeyD",
-    fire:"Space", parry:"KeyQ", dash:"KeyE", special:["KeyF","KeyR"] },
+    fire:"Mouse0", parry:"Mouse2", dash:"KeyE", special:["KeyF","KeyR"] },
   { up:"ArrowUp", down:"ArrowDown", left:"ArrowLeft", right:"ArrowRight",
-    fire:"Period", parry:"Comma", dash:"Slash", special:["Semicolon","ShiftRight","Numpad0"] },
+    fire:"ShiftRight", parry:"Enter", dash:"Slash", special:["Semicolon","Numpad0"] },
 ];
 
 function blankInput(){
@@ -292,7 +409,7 @@ function readInput(schemeIndex){
 }
 // Either player may advance a story card in local play.
 function anyConfirm(){
-  return edge.has("Space") || edge.has("Enter") || edge.has("Period");
+  return edge.has("Space") || edge.has("Enter") || edge.has("Mouse0") || edge.has("ShiftRight");
 }
 
 /* ============================================================
@@ -392,11 +509,13 @@ class Game {
     this.rings = [];
     this.motes.length = 0;
     this.sparks.length = 0;
+    this.pickups = (this.arena.pickups || []).map(pt => ({x:pt[0], y:pt[1], cd:0}));
     this.time = 0;
     this.encroach = 0;
     this.closeTimer = 0;
     this.overTimer = 0;
     this.result = null;              // {winner:0|1|-1}
+    this.countdown = 1.1;            // a short freeze so neither seat gets a head start
     const sp = this.arena.spawns;
     this.players[0].reset(sp[0][0], sp[0][1]);
     this.players[1].reset(sp[1][0], sp[1][1]);
@@ -412,8 +531,18 @@ class Game {
   }
 
   step(dt, inputs){
-    this.time += dt;
     if (this.shake > 0) this.shake = Math.max(0, this.shake - dt*3.5);
+
+    // Neither seat can move, fire, or guard until this clears — so on a
+    // shared keyboard the player who reacts to the card first doesn't
+    // get a free head start on the player who is still finding their keys.
+    if (this.countdown > 0){
+      this.countdown = Math.max(0, this.countdown - dt);
+      this.stepSparks(dt);
+      return;
+    }
+
+    this.time += dt;
 
     for (let i = this.temps.length - 1; i >= 0; i--){
       this.temps[i].ttl -= dt;
@@ -437,6 +566,7 @@ class Game {
       }
       for (let i=0;i<2;i++) this.stepPlayer(this.players[i], inputs[i], dt);
       this.stepMotes(dt);
+      this.stepPickups(dt);
       this.checkDeaths();
     } else {
       this.overTimer += dt;
@@ -508,6 +638,25 @@ class Game {
     for (const w of this.obstacles){
       const axis = resolveCircleRect(p, w, rad);
       if (axis === "x") p.vx = 0; else if (axis === "y") p.vy = 0;
+    }
+  }
+
+  // Ammo caches scattered around the arena. Touch one at less-than-full
+  // ammo to take a mote from it; it goes dark for a while and refills.
+  PICKUP_COOLDOWN = 9;
+  stepPickups(dt){
+    for (const pk of this.pickups){
+      if (pk.cd > 0){ pk.cd = Math.max(0, pk.cd - dt); continue; }
+      for (const p of this.players){
+        if (!p.alive || p.ammo >= p.st.ammo) continue;
+        const d = len(p.x - pk.x, p.y - pk.y);
+        if (d <= p.st.radius + 14){
+          p.ammo = Math.min(p.st.ammo, p.ammo + 1);
+          pk.cd = this.PICKUP_COOLDOWN;
+          this.burst(pk.x, pk.y, "#e9f2ff", 14);
+          break;
+        }
+      }
     }
   }
 
@@ -744,7 +893,7 @@ class Game {
   snapshot(){
     return {
       r:this.round, t:this.time, e:this.encroach, sc:this.scores, pk:this.picks,
-      res:this.result ? this.result.winner : null,
+      res:this.result ? this.result.winner : null, cd:Math.round(this.countdown*100)/100,
       p:this.players.map(p => [
         Math.round(p.x*10)/10, Math.round(p.y*10)/10,
         Math.round(p.fx*100)/100, Math.round(p.fy*100)/100,
@@ -758,6 +907,7 @@ class Game {
         Math.round(m.vx), Math.round(m.vy), m.owner, m.armed?1:0, m.radius ]),
       w:this.temps.map(t => [t.x, t.y, t.w, t.h, t.void?1:0, Math.round(t.ttl*10)/10]),
       g:this.rings.map(r => [r.x, r.y, Math.round(r.t*100)/100, r.life]),
+      pu:this.pickups.map(pk => [pk.x, pk.y, Math.round(pk.cd*10)/10]),
       sh:Math.round(this.shake*100)/100,
     };
   }
@@ -769,7 +919,7 @@ class Game {
     }
     if (s.r !== this.round) this.loadRound(s.r);
     this.time = s.t; this.encroach = s.e; this.scores = s.sc;
-    this.shake = s.sh;
+    this.shake = s.sh; this.countdown = s.cd || 0;
     this.result = s.res === null ? null : { winner:s.res };
 
     s.p.forEach((a,i) => {
@@ -780,6 +930,7 @@ class Game {
     });
     this.temps = s.w.map(t => ({x:t[0], y:t[1], w:t[2], h:t[3], void:!!t[4], ttl:t[5]}));
     this.rings = s.g.map(r => ({x:r[0], y:r[1], t:r[2], life:r[3]}));
+    if (s.pu) this.pickups = s.pu.map(pk => ({x:pk[0], y:pk[1], cd:pk[2]}));
 
     // Rebuild motes, keeping trails for ones that persisted.
     const old = this.motes;
@@ -904,6 +1055,28 @@ function render(g, ui){
       ctx.strokeRect(t.x+1, t.y+1, t.w-2, t.h-2);
     }
     ctx.globalAlpha = 1;
+  }
+
+  // ammo pickups
+  for (const pk of g.pickups){
+    if (pk.cd > 0){
+      ctx.globalAlpha = 0.22;
+      ctx.strokeStyle = "rgba(200,215,235,.6)"; ctx.lineWidth = 1.5;
+      ctx.beginPath(); ctx.arc(pk.x, pk.y, 9, 0, 7); ctx.stroke();
+      ctx.globalAlpha = 1;
+      continue;
+    }
+    const bob = Math.sin(g.time*3 + pk.x*0.05) * 3;
+    ctx.shadowBlur = 14; ctx.shadowColor = "#e9f2ff";
+    ctx.fillStyle = "#e9f2ff";
+    ctx.save();
+    ctx.translate(pk.x, pk.y + bob);
+    ctx.rotate(Math.PI/4);
+    ctx.fillRect(-6, -6, 12, 12);
+    ctx.restore();
+    ctx.shadowBlur = 0;
+    ctx.strokeStyle = "rgba(255,255,255,.5)"; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.arc(pk.x, pk.y + bob, 13, 0, 7); ctx.stroke();
   }
 
   // Keel's ring
@@ -1085,6 +1258,14 @@ function drawHUD(g, ui){
     ctx.fillStyle = "rgba(160,180,205,.5)";
     ctx.fillText(ui.netLabel, W/2, H-24);
   }
+
+  if (g.countdown > 0){
+    ctx.textAlign = "center"; ctx.textBaseline = "middle";
+    ctx.font = "600 34px ui-monospace,SFMono-Regular,Menlo,monospace";
+    ctx.fillStyle = "rgba(255,255,255," + (0.5 + 0.5*Math.sin(g.countdown*14)) + ")";
+    ctx.fillText(g.countdown > 0.35 ? "READY" : "GO", W/2, H/2);
+    ctx.textBaseline = "top";
+  }
 }
 
 /* ============================================================
@@ -1113,10 +1294,16 @@ function renderSelect(sel, ui){
   ctx.fillText("T H E   K E E P E R S   O F   T H E   C O A S T", W/2, 44);
   ctx.font = "500 13px ui-monospace,SFMono-Regular,Menlo,monospace";
   ctx.fillStyle = "rgba(200,215,235,.75)";
-  ctx.fillText("Take a mirror.  Fire locks it in, guard takes it back.", W/2, 72);
+  ctx.fillText("Take a fighter.  Fire locks it in, guard takes it back.", W/2, 72);
+
+  ctx.textAlign = "right";
+  ctx.font = "600 13px ui-monospace,SFMono-Regular,Menlo,monospace";
+  ctx.fillStyle = "#ffd66b";
+  ctx.fillText("◆ " + PROGRESS.coins + " salt-coins", W-24, 44);
 
   for (let i=0;i<CHARS.length;i++){
     const c = CHARS[i], r = cardRect(i);
+    const unlocked = isUnlocked(c);
     const chosenBy = [0,1].filter(s => sel.cursor[s] === i);
     const lockedBy = chosenBy.filter(s => sel.locked[s]);
 
@@ -1125,32 +1312,53 @@ function renderSelect(sel, ui){
     ctx.strokeStyle = "rgba(120,155,195,.22)"; ctx.lineWidth = 1;
     ctx.strokeRect(r.x+.5, r.y+.5, r.w-1, r.h-1);
 
+    if (!unlocked){
+      ctx.fillStyle = "rgba(4,6,10,.6)";
+      ctx.fillRect(r.x, r.y, r.w, r.h);
+    }
+
     // the keeper's own light
     ctx.shadowBlur = 18; ctx.shadowColor = c.color;
     ctx.fillStyle = c.color;
+    ctx.globalAlpha = unlocked ? 1 : 0.35;
     ctx.beginPath(); ctx.arc(r.x+28, r.y+30, 11, 0, 7); ctx.fill();
     ctx.shadowBlur = 0;
     ctx.fillStyle = "rgba(16,26,38,1)";
     ctx.beginPath(); ctx.arc(r.x+28, r.y+30, 6, 0, 7); ctx.fill();
+    ctx.globalAlpha = 1;
 
     ctx.textAlign = "left";
     ctx.font = "600 15px ui-monospace,SFMono-Regular,Menlo,monospace";
-    ctx.fillStyle = c.color;
+    ctx.fillStyle = unlocked ? c.color : "rgba(200,215,235,.4)";
     ctx.fillText(c.name, r.x+50, r.y+18);
     ctx.font = "500 10px ui-monospace,SFMono-Regular,Menlo,monospace";
     ctx.fillStyle = "rgba(200,215,235,.5)";
     ctx.fillText(c.title.toUpperCase(), r.x+50, r.y+36);
 
-    ctx.font = "500 10.5px ui-monospace,SFMono-Regular,Menlo,monospace";
-    ctx.fillStyle = "rgba(205,220,238,.78)";
-    wrapText(c.passive, r.x+14, r.y+58, r.w-28, 13, 3);
+    if (!unlocked){
+      ctx.textAlign = "center";
+      ctx.font = "600 22px ui-monospace,SFMono-Regular,Menlo,monospace";
+      ctx.fillStyle = "rgba(220,230,245,.55)";
+      ctx.fillText("🔒", r.x + r.w/2, r.y + 66);
+      ctx.font = "600 12px ui-monospace,SFMono-Regular,Menlo,monospace";
+      ctx.fillStyle = "#ffd66b";
+      ctx.fillText("◆ " + UNLOCK_COST[c.id], r.x + r.w/2, r.y + 94);
+      ctx.font = "500 10px ui-monospace,SFMono-Regular,Menlo,monospace";
+      ctx.fillStyle = "rgba(200,215,235,.45)";
+      ctx.fillText("fire to unlock", r.x + r.w/2, r.y + 112);
+      ctx.textAlign = "left";
+    } else {
+      ctx.font = "500 10.5px ui-monospace,SFMono-Regular,Menlo,monospace";
+      ctx.fillStyle = "rgba(205,220,238,.78)";
+      wrapText(c.passive, r.x+14, r.y+58, r.w-28, 13, 3);
 
-    ctx.fillStyle = c.color;
-    ctx.font = "600 10px ui-monospace,SFMono-Regular,Menlo,monospace";
-    ctx.fillText("◆ " + c.special, r.x+14, r.y+104);
-    ctx.fillStyle = "rgba(200,215,235,.58)";
-    ctx.font = "500 10px ui-monospace,SFMono-Regular,Menlo,monospace";
-    wrapText(c.specialText, r.x+14, r.y+120, r.w-28, 12, 2);
+      ctx.fillStyle = c.color;
+      ctx.font = "600 10px ui-monospace,SFMono-Regular,Menlo,monospace";
+      ctx.fillText("◆ " + c.special, r.x+14, r.y+104);
+      ctx.fillStyle = "rgba(200,215,235,.58)";
+      ctx.font = "500 10px ui-monospace,SFMono-Regular,Menlo,monospace";
+      wrapText(c.specialText, r.x+14, r.y+120, r.w-28, 12, 2);
+    }
 
     // seat cursors sit just outside the card, one inset per seat
     chosenBy.forEach(s => {
@@ -1169,14 +1377,19 @@ function renderSelect(sel, ui){
 
   ctx.textAlign = "center";
   ctx.font = "500 11px ui-monospace,SFMono-Regular,Menlo,monospace";
-  ctx.fillStyle = "rgba(200,215,235,.45)";
-  ctx.fillText(ui.selHint || "", W/2, H-42);
+  if (sel.msgT > 0){
+    ctx.fillStyle = "#ff8a6b";
+    ctx.fillText(sel.msg, W/2, H-42);
+  } else {
+    ctx.fillStyle = "rgba(200,215,235,.45)";
+    ctx.fillText(ui.selHint || "", W/2, H-42);
+  }
   ctx.fillStyle = "rgba(200,215,235,.3)";
   ctx.fillText("ESC  —  back to the menu", W/2, H-24);
 }
 
 // Seat colours on the select screen: the seat's own pick.
-let SELECT_STATE = { cursor:[0,1], locked:[false,false], lastAx:[0,0], lastAy:[0,0] };
+let SELECT_STATE = { cursor:[0,1], locked:[false,false], lastAx:[0,0], lastAy:[0,0], msg:"", msgT:0 };
 function g_picksColor(seat){ return CHARS[SELECT_STATE.cursor[seat]].color; }
 
 /* ============================================================
@@ -1185,89 +1398,114 @@ function g_picksColor(seat){ return CHARS[SELECT_STATE.cursor[seat]].color; }
 function show(html){ overlay.innerHTML = `<div class="card">${html}</div>`; overlay.classList.add("on"); }
 function hide(){ overlay.classList.remove("on"); overlay.innerHTML = ""; }
 
+function uiStartLocal(){ netMode = "local"; CPU.seats = [false,false]; startSelect(); }
+function uiStartCPU(){ state = ST.DIFF; difficultyCard(); }
+function uiPickDiff(level){ netMode = "local"; CPU.level = level; CPU.seats = [false,true]; startSelect(); }
+
 function menuCard(){
+  const unlockedCount = CHARS.filter(isUnlocked).length;
   show(`
-    <div class="kicker">A duel for one lamp</div>
+    <div class="kicker">Local &amp; online arena shooter</div>
     <h1>SALT&nbsp;LINE</h1>
-    <p>The sea took the coast in a single winter. What is left is a tower, a lamp,
-       and two keepers who both know how to keep it.</p>
-    <p>Mirrors at dusk. First to ${WINS_NEEDED} rounds keeps the light.
-       ${CHARS.length} keepers to choose from, each with their own craft and one earned special.</p>
+    <div class="coinTag">◆ ${PROGRESS.coins} salt-coins &nbsp;·&nbsp; ${unlockedCount}/${CHARS.length} fighters unlocked</div>
+    <p>Fast, top-down duels with reflected shots, parries, and dashes.
+       First to ${WINS_NEEDED} round wins takes the match, across ${ARENAS.length} arenas.
+       Win matches against the CPU to earn coins and unlock the rest of the roster.</p>
+    <div class="modeGrid">
+      <button class="modeBtn" id="m1"><span class="icon">🕹️</span><div>
+        <div class="num">1 · LOCAL</div>
+        <div class="lbl">Two players, one keyboard</div>
+        <div class="desc">Player one on WASD + mouse, player two on the arrows</div></div></button>
+      <button class="modeBtn" id="m4"><span class="icon">🤖</span><div>
+        <div class="num">4 · SOLO</div>
+        <div class="lbl">Play against the CPU</div>
+        <div class="desc">Three difficulty tiers — and it pays out in coins</div></div></button>
+      <button class="modeBtn" id="m2"><span class="icon">🌐</span><div>
+        <div class="num">2 · ONLINE</div>
+        <div class="lbl">Host a duel</div>
+        <div class="desc">Get an invite code to send a friend, no account needed</div></div></button>
+      <button class="modeBtn" id="m3"><span class="icon">🔑</span><div>
+        <div class="num">3 · ONLINE</div>
+        <div class="lbl">Join with a code</div>
+        <div class="desc">Paste a code someone hosting sent you</div></div></button>
+    </div>
     <div class="rule"></div>
-    <p class="hint"><b>1</b> — two players, one keyboard &nbsp;·&nbsp;
-       <b>2</b> — host an online duel &nbsp;·&nbsp;
-       <b>3</b> — join with a code &nbsp;·&nbsp;
-       <b>4</b> — alone, against the tower</p>
     <div class="keys">
       <section>
         <h3>Player one — left side</h3>
         <dl><dt>W A S D</dt><dd>move &amp; aim</dd>
-            <dt>Space</dt><dd>fire</dd>
-            <dt>Q</dt><dd>guard / parry</dd>
+            <dt>Left Click</dt><dd>fire</dd>
+            <dt>Right Click</dt><dd>guard / parry</dd>
             <dt>E</dt><dd>dash</dd>
             <dt>F</dt><dd>special</dd></dl>
       </section>
       <section>
         <h3>Player two — right side</h3>
         <dl><dt>&uarr; &darr; &larr; &rarr;</dt><dd>move &amp; aim</dd>
-            <dt>. period</dt><dd>fire</dd>
-            <dt>, comma</dt><dd>guard / parry</dd>
-            <dt>/ slash</dt><dd>dash</dd>
+            <dt>Right Shift</dt><dd>fire</dd>
+            <dt>Enter</dt><dd>guard / parry</dd>
+            <dt>?  slash</dt><dd>dash</dd>
             <dt>; semicolon</dt><dd>special</dd></dl>
       </section>
     </div>
-    <p class="hint" style="margin-top:22px">Every mote you fire arms after its first wall.
-       After that it does not care whose it was. Charge your special by parrying,
-       by keeping your motes alive off the walls, and by slipping past a live one.</p>
+    <p class="hint" style="margin-top:22px">Every shot arms itself after its first wall — after that
+       it doesn't care whose it was. Charge your special by parrying, by keeping your own shots
+       alive off the walls, and by slipping past a live one. Grab the glowing pickups for extra ammo.</p>
   `);
+  document.getElementById("m1").onclick = uiStartLocal;
+  document.getElementById("m4").onclick = uiStartCPU;
+  document.getElementById("m2").onclick = hostFlow;
+  document.getElementById("m3").onclick = joinFlow;
 }
 
 function difficultyCard(){
   show(`
-    <div class="kicker">Alone against the tower</div>
-    <h2>Who is holding the other mirror?</h2>
-    <p>It plays with the same keyboard you do — eight directions, one fire, one guard,
-       one dash, one special — and it reads only what is drawn on the screen.</p>
-    <p>It is also deterministic. The same position is answered the same way twice,
-       so it can be learned, and then beaten.</p>
+    <div class="kicker">Solo — against the CPU</div>
+    <h2>Choose a difficulty</h2>
+    <p>The CPU plays through the same controls you do — eight directions, one fire, one guard,
+       one dash, one special — and it only reacts to what's on screen.</p>
+    <p>It's deterministic: the same position gets answered the same way twice, so it can be
+       learned, and then beaten. Winning a match pays out salt-coins toward unlocking fighters.</p>
     <div class="rule"></div>
-    <p class="hint"><b>1</b> — Apprentice &nbsp;·&nbsp; slow to see it coming, rarely guards</p>
-    <p class="hint" style="margin-top:8px"><b>2</b> — Keeper &nbsp;·&nbsp; banks one wall, guards about half of what it should</p>
-    <p class="hint" style="margin-top:8px"><b>3</b> — Warden &nbsp;·&nbsp; banks two walls, guards almost everything, never hesitates</p>
-    <p class="hint" style="margin-top:22px">Press <kbd>Esc</kbd> to go back</p>
+    <button class="diffBtn" id="d0"><b>1 · Apprentice</b> &nbsp;—&nbsp; slow to see it coming, rarely guards &nbsp;·&nbsp; <span style="color:#ffd66b">+${CPU_WIN_COINS[0]} coins</span></button>
+    <button class="diffBtn" id="d1"><b>2 · Keeper</b> &nbsp;—&nbsp; banks a wall, guards about half of what it should &nbsp;·&nbsp; <span style="color:#ffd66b">+${CPU_WIN_COINS[1]} coins</span></button>
+    <button class="diffBtn" id="d2"><b>3 · Warden</b> &nbsp;—&nbsp; banks two walls, guards almost everything, never hesitates &nbsp;·&nbsp; <span style="color:#ffd66b">+${CPU_WIN_COINS[2]} coins</span></button>
+    <button class="backBtn" id="dback">‹ BACK</button>
   `);
+  document.getElementById("d0").onclick = () => uiPickDiff(0);
+  document.getElementById("d1").onclick = () => uiPickDiff(1);
+  document.getElementById("d2").onclick = () => uiPickDiff(2);
+  document.getElementById("dback").onclick = toMenu;
 }
 
 function beatCard(i, resultLine, names){
-  const b = BEATS[i % BEATS.length];
-  const who = names[b.who];
+  const p1 = names[0], p2 = names[1];
   show(`
     ${resultLine ? `<div class="kicker">${resultLine}</div>`
-                 : `<div class="kicker">Salt Line — round ${i+1}</div>`}
-    <h2 style="color:${who.color}">${b.head}</h2>
-    <p class="speaker">From the log of ${who.name}, ${who.title.toLowerCase()}</p>
-    ${b.lines.map(l => `<p>${l}</p>`).join("")}
+                 : `<div class="kicker">Round ${i+1} of ${WINS_NEEDED*2-1} (max)</div>`}
+    <h2><span style="color:${p1.color}">${p1.name}</span>
+        <span style="color:var(--dim);font-weight:400"> vs </span>
+        <span style="color:${p2.color}">${p2.name}</span></h2>
+    <p>First to ${WINS_NEEDED} round wins takes the match. Ammo pickups are scattered
+       around the arena — grab them to keep firing. Parry to catch a live shot and send
+       it back, dash to close distance or duck out of the line.</p>
     <div class="rule"></div>
-    <p class="hint blink">Press <b>fire</b> to take your place — <kbd>Space</kbd>${netMode==="local"?` or <kbd>.</kbd>`:``}</p>
+    <p class="hint blink">Press <b>fire</b> to drop in — <kbd>Click</kbd>${netMode==="local"?` or <kbd>R.Shift</kbd>`:``}</p>
   `);
 }
 
 function epilogueCard(winner, scores, names){
   const w = names[winner], l = names[1-winner];
+  const coinLine = LAST_COINS_EARNED > 0
+    ? `<p class="hint" style="margin-top:18px;color:#ffd66b">+${LAST_COINS_EARNED} salt-coins earned — ${PROGRESS.coins} total</p>`
+    : "";
   show(`
     <div class="kicker">${names[0].name} ${scores[0]} — ${scores[1]} ${names[1].name}</div>
-    <h2 style="color:${w.color}">One light on the coast</h2>
-    <p>${w.name} climbs. The wick catches on the second match and holds.</p>
-    <p>Below the cistern something turns over in its sleep and settles, the way a thing
-       settles when it has decided it can wait.</p>
-    <p>${l.name} takes the salt line inland at low tide without once looking back — because
-       ${w.name} is watching, and a keeper who looks back is a keeper who comes back,
-       and the tower holds one.</p>
-    <p>In the years after, ${w.name} ${w.ending}</p>
-    <p>By morning there is a single light burning on eighty miles of drowned coast.
-       There was only ever supposed to be one.</p>
+    <h2 style="color:${w.color}">${w.name} wins the match</h2>
+    <p>${w.name} the ${w.title.toLowerCase()} beats ${l.name} the ${l.title.toLowerCase()}, ${scores[winner]}–${scores[1-winner]}.</p>
+    ${coinLine}
     <div class="rule"></div>
-    <p class="hint blink">Press <b>fire</b> to begin again</p>
+    <p class="hint blink">Press <b>fire</b> to play again</p>
   `);
 }
 
@@ -1329,7 +1567,9 @@ function wireChannel(){
 function netCardShell(title, body, status){
   show(`<div class="kicker">Online duel</div><h2>${title}</h2>${body}
         <p class="hint" id="netstat">${status||""}</p>
-        <p class="hint">Press <kbd>Esc</kbd> to go back</p>`);
+        <button class="backBtn" id="netback">‹ BACK  (Esc)</button>`);
+  const b = document.getElementById("netback");
+  if (b) b.onclick = toMenu;
 }
 const TA = `style="width:100%;height:110px;background:#0b131c;color:#cfe0f2;border:1px solid #24374b;
   border-radius:6px;padding:10px;font:500 11px/1.45 ui-monospace,monospace;resize:vertical"`;
@@ -1822,7 +2062,7 @@ function toMenu(){
 }
 
 function startSelect(){
-  SELECT_STATE = { cursor:[0,1], locked:[false,false], lastAx:[0,0], lastAy:[0,0] };
+  SELECT_STATE = { cursor:[0,1], locked:[false,false], lastAx:[0,0], lastAy:[0,0], msg:"", msgT:0 };
   state = ST.SELECT;
   hide();
 }
@@ -1848,12 +2088,18 @@ function stepSelect(inputs){
     }
     SELECT_STATE.cursor[s] = clamp(i, 0, CHARS.length-1);
     SELECT_STATE.lastAx[s] = ax; SELECT_STATE.lastAy[s] = ay;
-    if (inp.fire) SELECT_STATE.locked[s] = true;
+    if (inp.fire){
+      const c = CHARS[SELECT_STATE.cursor[s]];
+      if (CPU.seats[s] || isUnlocked(c)) SELECT_STATE.locked[s] = true;
+      else if (tryUnlock(c)) SELECT_STATE.locked[s] = true;
+      else { SELECT_STATE.msg = "Need " + (UNLOCK_COST[c.id]-PROGRESS.coins) + " more salt-coins for " + c.name; SELECT_STATE.msgT = 2.2; }
+    }
   }
-  if (SELECT_STATE.locked[0] && SELECT_STATE.locked[1]) beginStory();
+  if (SELECT_STATE.msgT > 0) SELECT_STATE.msgT -= 1/60;
+  if (SELECT_STATE.locked[0] && SELECT_STATE.locked[1]) beginMatch();
 }
 
-function beginStory(){
+function beginMatch(){
   game = new Game(SELECT_STATE.cursor.slice());
   cardIdx = 0; resultLine = "";
   state = ST.CARD;
@@ -1875,6 +2121,14 @@ function endOfRound(){
   }
   if (game.scores[w] >= WINS_NEEDED){
     epiWinner = w; state = ST.EPI;
+    LAST_COINS_EARNED = 0;
+    // Coins are earned only by a human beating the CPU — never for CPU vs CPU,
+    // never for local or online duels between two people.
+    if (CPU.seats[0] !== CPU.seats[1] && !CPU.seats[w]){
+      LAST_COINS_EARNED = CPU_WIN_COINS[CPU.level];
+      PROGRESS.coins += LAST_COINS_EARNED;
+      saveProgress();
+    }
     epilogueCard(w, game.scores, seatNames());
     return;
   }
@@ -1897,6 +2151,15 @@ function tick(now){
   const dt = Math.min(0.1, (now - last)/1000); last = now;
 
   if (edge.has("Escape") && state !== ST.MENU){ netNote = ""; toMenu(); edge.clear(); return; }
+
+  // Behind every text overlay except the character-select screen (which
+  // already draws its own canvas scene) and an active match, keep the
+  // duel arena alive and lit — a game behind the glass, not a blank page.
+  if (state === ST.MENU || state === ST.DIFF || state === ST.NET ||
+      state === ST.CARD || state === ST.EPI){
+    game.stepSparks(dt);
+    render(game, { netLabel:"" });
+  }
 
   if (netMode === "guest"){
     guestSend();
@@ -1978,5 +2241,3 @@ requestAnimationFrame(tick);
 </script>
 </body>
 </html>
-saltline (4).html
-Displaying saltline (4).html.
