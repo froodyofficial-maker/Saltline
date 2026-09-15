@@ -133,20 +133,6 @@
 @media(max-width:900px){.homeShell{grid-template-columns:180px 1fr}.homeArt{display:none}.homeMain{grid-column:2}.homeFooter{position:relative;margin-top:40px}.coinTag{position:relative;display:inline-block;margin-bottom:24px}.lobbyBar{position:relative;bottom:auto;margin-top:30px}}
 @media(max-width:680px){#overlay .card{padding:24px}.homeShell{display:block;min-height:auto}.homeBrand{position:relative}.gameNav{padding-top:35px}.homeMain{padding-top:25px}.gameNav button{display:inline-block;margin-right:4px}.homeFooter{margin-top:30px}.lobbyBar{display:none}}
 
-
-.homeMinimal{display:flex;flex-direction:column;align-items:flex-start;justify-content:center;min-height:48vh}
-.homeMinimal .bigPlay{font-size:16px;min-width:250px;padding:20px 34px;letter-spacing:.28em;box-shadow:0 18px 50px rgba(0,0,0,.5)}
-.shopSkinGrid{display:grid;grid-template-columns:repeat(4,minmax(120px,1fr));gap:10px;margin:16px 0 6px}
-.shopSkin{appearance:none;text-align:left;cursor:pointer;background:#0b121b;border:1px solid #223245;border-radius:8px;padding:10px;color:#fff;transition:.16s ease;font-family:inherit}
-.shopSkin:hover{border-color:#7894ae;background:#101b27;transform:translateY(-2px)}
-.shopSkinTop{display:flex;justify-content:space-between;gap:6px;font:700 9px ui-monospace,monospace;letter-spacing:.08em;color:#91a4b7;text-transform:uppercase}
-.shopSkin b{display:block;margin-top:2px;font:700 12px ui-monospace,monospace;letter-spacing:.1em;color:#fff}
-.shopSkin .skinPreview{display:flex;margin:10px auto 8px;width:58px;height:58px}
-.shopFoot{margin-top:14px;border-top:1px solid #223245;padding-top:10px;font:600 9px ui-monospace,monospace;letter-spacing:.16em;color:#8799aa}
-@media(max-width:900px){.shopSkinGrid{grid-template-columns:repeat(3,1fr)}}
-@media(max-width:600px){.shopSkinGrid{grid-template-columns:repeat(2,1fr)}}
-
-.modRow{display:flex;gap:14px;align-items:flex-start;padding:14px 10px;border:1px solid var(--edge);background:rgba(10,17,26,.62);margin:8px 0;cursor:pointer;transition:transform .16s,border-color .16s,background .16s}.modRow:hover{transform:translateX(3px);border-color:rgba(200,220,245,.38);background:rgba(18,29,42,.82)}.modRow input{width:18px;height:18px;margin-top:2px;accent-color:#dcecff}.modRow span{display:flex;flex-direction:column;gap:4px}.modRow b{font:700 12px ui-monospace,monospace;letter-spacing:.12em;color:#f3f7fb}.modRow small{font:500 10px/1.5 ui-monospace,monospace;color:rgba(210,225,240,.55)}.modeBtn.selected{border-color:rgba(220,235,255,.7);box-shadow:0 0 0 1px rgba(220,235,255,.12) inset}.modeDesc{margin-top:7px;font:500 9px/1.4 ui-monospace,monospace;color:rgba(210,225,240,.52)}.playWays{grid-template-columns:repeat(4,1fr)}
 </style>
 <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/npm/peerjs@1.5.4/dist/peerjs.min.js'"></script>
 </head>
@@ -271,8 +257,8 @@ const UNLOCK_COST = { ines:0, cato:0, meran:120, odall:150, silt:150, vane:180, 
 const CPU_WIN_COINS = [40, 55, 70, 110, 160];     // Apprentice, Scout, Keeper, Warden, Harbinger
 
 const PROGRESS_KEY = "saltline_progress_v1";
-const FREE_MAP_COUNT = 9;
-const MAP_COSTS = [0,0,0,0,0,0,0,0,0];
+const FREE_MAP_COUNT = 5;
+const MAP_COSTS = [0,0,0,0,0,120,150,180,220,250];
 let MAP_CATALOG = [];
 function mapIdFor(i){ return "map_" + i; }
 function defaultMapIds(){ return Array.from({length:FREE_MAP_COUNT}, (_,i)=>mapIdFor(i)); }
@@ -375,9 +361,6 @@ function saveSettings(){try{localStorage.setItem(SETTINGS_KEY,JSON.stringify(KEY
 function keyLabel(code){const n={Space:"SPACE",Period:".",Comma:",",Slash:"/",Semicolon:";",Quote:"'",Backquote:"`",Minus:"-",Equal:"=",BracketLeft:"[",BracketRight:"]",Backslash:"\\",ShiftLeft:"L SHIFT",ShiftRight:"R SHIFT",ControlLeft:"L CTRL",ControlRight:"R CTRL",AltLeft:"L ALT",AltRight:"R ALT",Mouse0:"MOUSE LEFT",Mouse1:"MOUSE MIDDLE",Mouse2:"MOUSE RIGHT",Mouse3:"MOUSE 4",Mouse4:"MOUSE 5"};return n[code]||(code.startsWith("Key")?code.slice(3):code.replace("Arrow",""));}
 function currentSchemes(){return [{...KEYBINDS.p1},{...KEYBINDS.p2}];}
 let GAME_MODE="classic";
-const GAME_MODIFIERS={ lives:false, noSelfDeath:false, noCpuSelfDeath:false, noShootRespawn:false };
-function modifierSnapshot(){ return {...GAME_MODIFIERS}; }
-function applyModifierSnapshot(m){ if(!m) return; Object.assign(GAME_MODIFIERS, {lives:!!m.lives,noSelfDeath:!!m.noSelfDeath,noCpuSelfDeath:!!m.noCpuSelfDeath,noShootRespawn:!!m.noShootRespawn}); }
 const GAME_MODES={
  classic:{name:"Classic Duel",desc:"First to 3 round wins. The original SALT LINE rules."},
  sudden:{name:"Sudden Death",desc:"One round. One mistake. No second chances."},
@@ -385,41 +368,14 @@ const GAME_MODES={
  tide:{name:"Closing Tide",desc:"The arena starts closing after 18 seconds. Keep moving."}
 };
 function modeCard(next){
- const showPlayWays = !next;
- const lobbyLabel = netMode === "host" ? "LOCAL · HOST" : netMode === "guest" ? "LOCAL · JOIN" : (CPU.seats[1] ? "LOCAL · CPU" : "LOCAL · 2 PLAYER");
- show(`<div class="kicker">Lobby</div><h2>Choose how to play</h2>
- <div class="lobbyBar"><span>LOCAL <b>${lobbyLabel}</b></span><span class="onlineTag">${netMode === "host" || netMode === "guest" ? "FRIEND CONNECTED" : "READY"}</span></div>
- ${showPlayWays ? `<div class="modeGrid playWays"><button class="modeBtn" id="playLocal"><div class="num">PLAY</div><div class="lbl">LOCAL DUEL</div><div class="modeDesc">Two players on one keyboard.</div></button><button class="modeBtn" id="playCpu"><div class="num">PLAY</div><div class="lbl">VS CPU</div><div class="modeDesc">Fight through five CPU difficulties.</div></button><button class="modeBtn" id="playHost"><div class="num">PLAY</div><div class="lbl">HOST</div><div class="modeDesc">Create a private lobby for a friend.</div></button><button class="modeBtn" id="playJoin"><div class="num">PLAY</div><div class="lbl">JOIN</div><div class="modeDesc">Enter a friend's private lobby.</div></button></div>` : ""}
- <div class="rule"></div>
- <div class="modeGrid">${Object.entries(GAME_MODES).map(([id,m],i)=>`<button class="modeBtn ${GAME_MODE===id?'selected':''}" id="gm_${id}"><div class="num">${i+1} · MODE</div><div class="lbl">${m.name}</div><div class="modeDesc">${m.desc}</div></button>`).join("")}</div>
- <button class="diffBtn" id="modBtn"><b>GAMEPLAY MODIFIERS</b><span style="float:right;color:var(--muted)">${modifierSummary()}</span></button>
+ show(`<div class="kicker">Game modes</div><h2>Choose the rules</h2>
+ <div class="lobbyBar"><span>Lobby <b>${netMode === "host" || netMode === "guest" ? "ONLINE" : "LOCAL"}</b></span><span class="onlineTag">${netMode === "host" || netMode === "guest" ? "FRIEND CONNECTED" : "CPU / LOCAL"}</span></div>
+ <p>Same SALT LINE combat, different win conditions. Online friends stay connected between matches.</p>
+ <div class="modeGrid">${Object.entries(GAME_MODES).map(([id,m],i)=>`<button class="modeBtn" id="gm_${id}"><div class="num">${i+1} · MODE</div><div class="lbl">${m.name}</div><div class="desc">${m.desc}</div></button>`).join("")}</div>
  <button class="backBtn" id="gmback">‹ BACK</button>`, true);
- document.getElementById("playLocal").onclick=()=>{netMode="local";CPU.seats=[false,false];startSelect();};
- document.getElementById("playCpu").onclick=()=>{state=ST.DIFF;difficultyCard();};
- document.getElementById("playHost").onclick=()=>hostFlow();
- document.getElementById("playJoin").onclick=()=>joinFlow();
- Object.keys(GAME_MODES).forEach(id=>document.getElementById("gm_"+id).onclick=()=>{GAME_MODE=id; syncLobby(); modeCard(next);});
- document.getElementById("modBtn").onclick=()=>modifierCard(next);
+ Object.keys(GAME_MODES).forEach(id=>document.getElementById("gm_"+id).onclick=()=>{GAME_MODE=id;if(next)next();else startSelect();});
  document.getElementById("gmback").onclick=toMenu;
 }
-function modifierSummary(){
- const a=[]; if(GAME_MODIFIERS.lives)a.push("3 LIVES"); if(GAME_MODIFIERS.noSelfDeath)a.push("NO SELF-DEATH"); if(GAME_MODIFIERS.noCpuSelfDeath)a.push("NO CPU SELF-DEATH"); if(GAME_MODIFIERS.noShootRespawn)a.push("NO SHOOT ON SHIELD");
- return a.length?a.join(" · "):"OFF";
-}
-function syncLobby(){ if(netMode === "host") send({lobby:{mode:GAME_MODE,mods:modifierSnapshot()}}); }
-function modifierCard(next){
- show(`<div class="kicker">Lobby settings</div><h2>Gameplay modifiers</h2>
- <p class="hint">Optional rules. Everyone in the lobby uses the same match rules.</p>
- <label class="modRow"><input type="checkbox" id="modLives" ${GAME_MODIFIERS.lives?'checked':''}><span><b>3 LIVES</b><small>Replaces separate rounds with three lives. Losing a life resets your position.</small></span></label>
- <label class="modRow"><input type="checkbox" id="modSelf" ${GAME_MODIFIERS.noSelfDeath?'checked':''}><span><b>NO SELF-DEATH</b><small>Your own bullets cannot kill you. In CPU mode, this only affects you.</small></span></label>
- <label class="modRow"><input type="checkbox" id="modCpuSelf" ${GAME_MODIFIERS.noCpuSelfDeath?'checked':''}><span><b>NO CPU SELF-DEATH</b><small>The CPU cannot be killed by its own bullets.</small></span></label>
- <label class="modRow"><input type="checkbox" id="modShoot" ${GAME_MODIFIERS.noShootRespawn?'checked':''}><span><b>NO SHOOT ON SHIELD</b><small>With 3 Lives, you cannot shoot during the 2-second life-loss shield.</small></span></label>
- <div class="rule"></div><button class="diffBtn" id="modDone">DONE</button>`, true);
- const save=()=>{ GAME_MODIFIERS.lives=document.getElementById('modLives').checked; GAME_MODIFIERS.noSelfDeath=document.getElementById('modSelf').checked; GAME_MODIFIERS.noCpuSelfDeath=document.getElementById('modCpuSelf').checked; GAME_MODIFIERS.noShootRespawn=document.getElementById('modShoot').checked; syncLobby(); modifierCard(next); };
- ["modLives","modSelf","modCpuSelf","modShoot"].forEach(id=>document.getElementById(id).onchange=save);
- document.getElementById("modDone").onclick=()=>{syncLobby();modeCard(next);};
-}
-
 let BINDING = null;
 function setBinding(seat,key,code){
   KEYBINDS[seat][key]=code;
@@ -458,7 +414,7 @@ function skinsCard(){
       <p>Choose a keeper, preview their compact cosmetic variants, then equip one. Skins never change gameplay.</p>
       <div class="modeGrid">${CHARS.filter(isUnlocked).map(c=>`<button class="modeBtn" id="skinchar_${c.id}"><div class="num">${c.id===activeChar.id?"SELECTED":"KEEPER"}</div><div class="lbl" style="color:${c.color}">${c.name}</div><div class="desc">${c.title} · ${c.special}</div></button>`).join("")}</div>
       <div class="kicker" style="margin-top:26px">${activeChar.name} · skins</div>
-      <div class="modeGrid" style="grid-template-columns:repeat(5,1fr)">${SKIN_STYLES.map((st,i)=>{const own=skinOwned(activeChar.id,i), eq=equipped===st.id; return `<button class="modeBtn" id="skin_${i}"><div class="num">${eq?"EQUIPPED":own?"OWNED":"◆ "+SKIN_COSTS[i]}</div><div class="skinPreview" style="--sp-a:${SKIN_PALETTES[activeChar.id][i][2]};--sp-b:${SKIN_PALETTES[activeChar.id][i][0]}"></div><div class="lbl" style="color:${SKIN_PALETTES[activeChar.id][i][2]}">${skinName(activeChar.id,i)}</div></button>`;}).join("")}</div>
+      <div class="modeGrid" style="grid-template-columns:repeat(5,1fr)">${SKIN_STYLES.map((st,i)=>{const own=skinOwned(activeChar.id,i), eq=equipped===st.id; return `<button class="modeBtn" id="skin_${i}"><div class="num">${eq?"EQUIPPED":own?"OWNED":"◆ "+SKIN_COSTS[i]}</div><div class="skinPreview" style="--sp-a:${SKIN_PALETTES[activeChar.id][i][2]};--sp-b:${SKIN_PALETTES[activeChar.id][i][0]}"></div><div class="lbl" style="color:${SKIN_PALETTES[activeChar.id][i][2]}">${skinName(activeChar.id,i)}</div><div class="desc">${eq?"Currently equipped":own?"Click to equip":"Buy this cosmetic variant"}</div></button>`;}).join("")}</div>
       <p class="hint">PLAYER ${activeSeat+1} LOADOUT · ${activeChar.name} · ${skinName(activeChar.id,skinIndex(activeChar.id,equipped))}</p>
       <div class="utilityRow"><button class="utilityBtn" id="seat1">PLAYER 1</button><button class="utilityBtn" id="seat2">PLAYER 2</button><button class="utilityBtn" id="skinshop">SHOP</button></div>
       <button class="backBtn" id="skinback">‹ BACK</button>`, true);
@@ -473,23 +429,15 @@ function skinsCard(){
 }
 
 function shopCard(){
- ensureSkinProgress();
- const ownedFighters=CHARS.filter(isUnlocked).length;
  show(`<div class="kicker">Salt-coins</div><h2>Shop</h2><div class="coinTag">◆ ${PROGRESS.coins} salt-coins</div>
+ <p>Unlock fighters and maps with coins earned from CPU victories. The first ${FREE_MAP_COUNT} maps are always free and stay in the standard rotation.</p>
  <div class="kicker" style="margin-top:26px">Fighters</div>
- <div class="modeGrid">${CHARS.map(c=>`<button class="modeBtn" id="shop_${c.id}"><div class="num">${isUnlocked(c)?"OWNED":"◆ "+UNLOCK_COST[c.id]}</div><div class="lbl" style="color:${c.color}">${c.name}</div></button>`).join("")}</div>
- <div class="kicker" style="margin-top:30px">Skins</div>
- <div class="shopSkinGrid">${CHARS.flatMap(c=>SKIN_STYLES.map((st,i)=>{
-   const own=skinOwned(c.id,i);
-   return `<button class="shopSkin" id="shopSkin_${c.id}_${i}"><div class="shopSkinTop"><span>${c.name}</span><span>${own?"OWNED":"◆ "+SKIN_COSTS[i]}</span></div><div class="skinPreview" style="--sp-a:${SKIN_PALETTES[c.id][i][2]};--sp-b:${SKIN_PALETTES[c.id][i][0]}"></div><b>${skinName(c.id,i)}</b></button>`;
- })).join("")}</div>
- <div class="shopFoot">${ownedFighters}/${CHARS.length} FIGHTERS OWNED · COSMETICS ARE COSMETIC ONLY</div>
+ <div class="modeGrid">${CHARS.map(c=>`<button class="modeBtn" id="shop_${c.id}"><div class="num">${isUnlocked(c)?"OWNED":"◆ "+UNLOCK_COST[c.id]}</div><div class="lbl" style="color:${c.color}">${c.name}</div><div class="desc">${c.title} — ${isUnlocked(c)?"ready to play":c.passive}</div></button>`).join("")}</div>
+ <div class="kicker" style="margin-top:30px">Maps</div>
+ <div class="modeGrid">${ARENAS.map((a,i)=>{const owned=isMapUnlocked(a);return `<button class="modeBtn" id="mapshop_${i}"><div class="num">${owned?"IN ROTATION":"◆ "+a.mapCost}</div><div class="lbl">${a.name}</div><div class="desc">${i<FREE_MAP_COUNT?"FREE · STANDARD ROTATION":owned?"OWNED · ADDED TO ROTATION":"BUY TO ADD TO ROTATION"}</div></button>`;}).join("")}</div>
  <button class="backBtn" id="shopback">‹ BACK</button>`, true);
  CHARS.forEach(c=>document.getElementById("shop_"+c.id).onclick=()=>{if(!isUnlocked(c)&&tryUnlock(c))shopCard();});
- CHARS.forEach(c=>SKIN_STYLES.forEach((st,i)=>{
-   const el=document.getElementById(`shopSkin_${c.id}_${i}`);
-   if(el) el.onclick=()=>{ if(!isUnlocked(c)) return; if(skinOwned(c.id,i)||buySkin(c.id,i)){ setEquippedSkin(0,c.id,i); shopCard(); } };
- }));
+ ARENAS.forEach((a,i)=>document.getElementById("mapshop_"+i).onclick=()=>{if(!isMapUnlocked(a)&&tryUnlockMap(a))shopCard();});
  document.getElementById("shopback").onclick=toMenu;
 }
 
@@ -624,59 +572,13 @@ addEventListener("keydown", e => {
   held.add(e.code); edge.add(e.code);
 }, {passive:false});
 addEventListener("keyup", e => held.delete(e.code));
-addEventListener("mousedown", e => {
-  if (e.button <= 4){
-    e.preventDefault();
-    const k="Mouse"+e.button;
-    mouseHeld.add(k);
-    mouseEdge.add(k);
-  }
-}, {passive:false});
-addEventListener("mouseup", e => {
-  if (e.button <= 4){ e.preventDefault(); mouseHeld.delete("Mouse"+e.button); }
-}, {passive:false});
-// Right-click is a valid rebindable input, never a browser command.
-// Prevent the context menu everywhere and release Mouse2 defensively so a
-// browser context-menu gesture can never leave the player moving forever.
-addEventListener("contextmenu", e => { e.preventDefault(); mouseHeld.delete("Mouse2"); }, {passive:false});
-addEventListener("auxclick", e => { if (e.button === 2) e.preventDefault(); }, {passive:false});
+addEventListener("mousedown", e => { if (e.button <= 4){ const k="Mouse"+e.button; mouseHeld.add(k); mouseEdge.add(k); } });
+addEventListener("mouseup", e => { if (e.button <= 4) mouseHeld.delete("Mouse"+e.button); });
+addEventListener("contextmenu", e => { if (mouseHeld.size) e.preventDefault(); });
 addEventListener("blur", () => { held.clear(); edge.clear(); mouseHeld.clear(); mouseEdge.clear(); });
 
 const hasHeld = k => Array.isArray(k) ? k.some(x => inputDown(x)) : inputDown(k);
 const hasEdge = k => Array.isArray(k) ? k.some(x => inputEdge(x)) : inputEdge(k);
-
-/* ============================================================
-   UI AUDIO
-   ============================================================ */
-let uiAudio = null;
-function uiAudioReady(){
-  try{
-    if (!uiAudio) uiAudio = new (window.AudioContext || window.webkitAudioContext)();
-    if (uiAudio.state === "suspended") uiAudio.resume();
-    return uiAudio;
-  }catch(e){ return null; }
-}
-function uiBeep(kind="click"){
-  const a=uiAudioReady(); if(!a) return;
-  const o=a.createOscillator(), g=a.createGain();
-  const now=a.currentTime;
-  const cfg = kind === "hover" ? [440,.035,.018] : kind === "back" ? [210,.06,.025] : [660,.045,.028];
-  o.type = kind === "hover" ? "sine" : "square";
-  o.frequency.setValueAtTime(cfg[0],now);
-  o.frequency.exponentialRampToValueAtTime(cfg[0]*(kind === "back" ? .72 : 1.18), now+cfg[1]);
-  g.gain.setValueAtTime(0.0001,now);
-  g.gain.exponentialRampToValueAtTime(cfg[2],now+.006);
-  g.gain.exponentialRampToValueAtTime(0.0001,now+cfg[1]);
-  o.connect(g).connect(a.destination); o.start(now); o.stop(now+cfg[1]+.01);
-}
-document.addEventListener("pointerover", e => {
-  const b=e.target.closest("button");
-  if(b && !b.dataset.uiHoverSound){ b.dataset.uiHoverSound="1"; uiBeep("hover"); }
-});
-document.addEventListener("click", e => {
-  const b=e.target.closest("button");
-  if(b) uiBeep(b.classList.contains("backBtn") ? "back" : "click");
-});
 
 const SCHEMES = [
   { up:"KeyW", down:"KeyS", left:"KeyA", right:"KeyD",
@@ -753,7 +655,7 @@ class Player {
     this.alive = true;
     this.ammo = this.st.ammo; this.reloads = [];
     this.fireCd = 0; this.fireBuffer = 0; this.parryCd = 0; this.parryT = 0;
-    this.shieldCd = 0; this.shieldT = 0; this.shieldBuffer = 0; this.respawnLock = 0;
+    this.shieldCd = 0; this.shieldT = 0; this.shieldBuffer = 0;
     this.dashCd = 0; this.dashT = 0;
     this.flash = 0; this.charge = 0; this.specialCd = 0; this.ghost = 0; this.burstT = 0;
     this.primed = false;                        // Meran's prism is loaded
@@ -782,7 +684,6 @@ class Mote {
 class Game {
   constructor(picks){
     this.scores=[0,0];
-    this.livesMode=!!GAME_MODIFIERS.lives;
     this.round=0;
     this.motes=[];
     this.players=[new Player(0), new Player(1)];
@@ -820,7 +721,6 @@ class Game {
     const sp = this.arena.spawns;
     this.players[0].reset(sp[0][0], sp[0][1]);
     this.players[1].reset(sp[1][0], sp[1][1]);
-    if(this.livesMode){ this.players[0].lives=3; this.players[1].lives=3; }
     this.players[0].fx = 1; this.players[1].fx = -1;
   }
 
@@ -886,7 +786,6 @@ class Game {
     p.parryCd = Math.max(0, p.parryCd - dt);
     p.shieldCd = Math.max(0, p.shieldCd - dt);
     p.shieldT = Math.max(0, p.shieldT - dt);
-    p.respawnLock = Math.max(0, p.respawnLock - dt);
     p.shieldBuffer = Math.max(0, p.shieldBuffer - dt);
     if (inp.shield) p.shieldBuffer = 0.16;
     p.dashCd  = Math.max(0, p.dashCd  - dt);
@@ -925,13 +824,11 @@ class Game {
       p.shieldBuffer = 0;
       p.shieldT = 0.5; p.shieldCd = 3.0;
     }
-    if (!GAME_MODIFIERS.noShootRespawn || p.respawnLock <= 0){
     if ((inp.fire || p.fireBuffer > 0) && p.ammo > 0 && p.ghost <= 0){
       p.fireBuffer = 0;
       p.ammo--;
       const mo = this.spawnMote(p, 0);
       if (p.primed){ mo.split = true; p.primed = false; }
-    }
     }
 
     // CPU movement gets an extra collision guard. The planner can only see a
@@ -1196,7 +1093,6 @@ class Game {
 
       for (const mo of this.motes){
         if (mo.dead) continue;
-        if (mo.owner === p.idx && ((CPU.seats[p.idx] && GAME_MODIFIERS.noCpuSelfDeath) || (!CPU.seats[p.idx] && GAME_MODIFIERS.noSelfDeath))) continue;
         const d = len(mo.x-p.x, mo.y-p.y);
         if (!mo.armed && mo.owner === p.idx) continue;  // your own shot is inert until it arms
         if (d <= p.st.radius + mo.radius){
@@ -1215,28 +1111,6 @@ class Game {
     }
     if (!dead[0] && !dead[1]) return;
 
-    if(this.livesMode){
-      const sp=this.arena.spawns;
-      for(let i=0;i<2;i++) if(dead[i]){
-        const p=this.players[i];
-        p.lives=Math.max(0,(p.lives ?? 3)-1);
-        this.burst(p.x,p.y,p.char.color,46,260);
-        if(p.lives<=0){ p.alive=false; }
-        else {
-          p.x=sp[i][0]; p.y=sp[i][1]; p.vx=0; p.vy=0; p.alive=true;
-          p.shieldT=2; p.shieldCd=2; p.respawnLock=2; p.fireBuffer=0; p.parryT=0; p.dashT=0;
-          p.fx=i===0?1:-1; p.fy=0;
-          this.burst(p.x,p.y,p.char.color,26,180);
-        }
-      }
-      this.shake=1;
-      if(this.players[0].lives<=0 || this.players[1].lives<=0){
-        const winner=this.players[0].lives<=0 && this.players[1].lives<=0 ? -1 : (this.players[0].lives<=0?1:0);
-        this.result={winner}; if(winner>=0)this.scores[winner]++;
-      }
-      this.motes=this.motes.filter(m=>!m.dead);
-      return;
-    }
     for (let i=0;i<2;i++) if (dead[i]){
       this.players[i].alive = false;
       this.burst(this.players[i].x, this.players[i].y, this.players[i].char.color, 46, 260);
@@ -1267,7 +1141,7 @@ class Game {
   /* ---------- network snapshot (host -> guest) ---------- */
   snapshot(){
     return {
-      r:this.round, map:this.arena.id, t:this.time, e:this.encroach, sc:this.scores, lv:this.players.map(p=>p.lives ?? 3), pk:this.picks,
+      r:this.round, map:this.arena.id, t:this.time, e:this.encroach, sc:this.scores, pk:this.picks,
       res:this.result ? this.result.winner : null, cd:Math.round(this.countdown*100)/100,
       p:this.players.map(p => [
         Math.round(p.x*10)/10, Math.round(p.y*10)/10,
@@ -1276,7 +1150,7 @@ class Game {
         Math.round(p.parryT*100)/100, Math.round(p.dashCd*100)/100,
         Math.round(p.parryCd*100)/100, Math.round(p.flash*100)/100,
         Math.round(p.shieldT*100)/100, Math.round(p.shieldCd*100)/100,
-        Math.round(p.charge), Math.round(p.ghost*100)/100, p.skinId, Math.round(p.respawnLock*100)/100,
+        Math.round(p.charge), Math.round(p.ghost*100)/100, p.skinId,
         p.primed?1:0, Math.round(p.burstT*100)/100, Math.round(p.specialCd*100)/100 ]),
       m:this.motes.map(m => [
         Math.round(m.x*10)/10, Math.round(m.y*10)/10,
@@ -1295,7 +1169,7 @@ class Game {
     }
     const snapArena = arenaById(s.map);
     if (s.r !== this.round || (snapArena && this.arena.id !== snapArena.id)) this.loadRound(s.r, snapArena);
-    this.time = s.t; this.encroach = s.e; this.scores = s.sc; if(s.lv) s.lv.forEach((v,i)=>this.players[i].lives=v);
+    this.time = s.t; this.encroach = s.e; this.scores = s.sc;
     this.shake = s.sh; this.countdown = s.cd || 0;
     this.result = s.res === null ? null : { winner:s.res };
 
@@ -1304,7 +1178,7 @@ class Game {
       p.x=a[0]; p.y=a[1]; p.fx=a[2]; p.fy=a[3]; p.alive=!!a[4];
       p.ammo=a[5]; p.parryT=a[6]; p.dashCd=a[7]; p.parryCd=a[8]; p.flash=a[9];
       p.shieldT=a[10]||0; p.shieldCd=a[11]||0;
-      p.charge=a[12]; p.ghost=a[13]; p.skinId=a[14] || "default"; p.respawnLock=a[15]||0; p.primed=!!a[16]; p.burstT=a[17]; p.specialCd=a[18]||0;
+      p.charge=a[12]; p.ghost=a[13]; p.skinId=a[14] || "default"; p.primed=!!a[15]; p.burstT=a[16]; p.specialCd=a[17]||0;
     });
     this.temps = s.w.map(t => ({x:t[0], y:t[1], w:t[2], h:t[3], void:!!t[4], ttl:t[5]}));
     this.rings = s.g.map(r => ({x:r[0], y:r[1], t:r[2], life:r[3]}));
@@ -1606,10 +1480,11 @@ function drawHUD(g, ui){
     ctx.fillText(CPU.seats[i] ? "CPU · " + CPU_LEVELS[CPU.level].id : p.char.title.toUpperCase(), x, 29);
     ctx.font = "600 12px ui-monospace,SFMono-Regular,Menlo,monospace";
 
-    if(g.livesMode){
-      for(let s=0;s<3;s++){ const px=right?x-8-s*16:x+4+s*16; ctx.beginPath();ctx.arc(px,50,5,0,7); if(s<(p.lives??3)){ctx.fillStyle=col;ctx.fill();}else{ctx.strokeStyle="rgba(255,255,255,.25)";ctx.lineWidth=1;ctx.stroke();} }
-    } else {
-      for (let s=0;s<WINS_NEEDED;s++){ const px = right ? x - 8 - s*16 : x + 4 + s*16; ctx.beginPath(); ctx.arc(px, 50, 5, 0, 7); if (s < g.scores[i]){ ctx.fillStyle = col; ctx.fill(); } else { ctx.strokeStyle = "rgba(255,255,255,.25)"; ctx.lineWidth = 1; ctx.stroke(); } }
+    for (let s=0;s<WINS_NEEDED;s++){          // rounds won
+      const px = right ? x - 8 - s*16 : x + 4 + s*16;
+      ctx.beginPath(); ctx.arc(px, 50, 5, 0, 7);
+      if (s < g.scores[i]){ ctx.fillStyle = col; ctx.fill(); }
+      else { ctx.strokeStyle = "rgba(255,255,255,.25)"; ctx.lineWidth = 1; ctx.stroke(); }
     }
     for (let a=0;a<p.st.ammo;a++){            // motes in hand
       const px = right ? x - 6 - a*12 : x + 6 + a*12;
@@ -1790,19 +1665,26 @@ function menuCard(){
 
       <nav class="gameNav" aria-label="Main menu">
         <button id="m1" class="active">PLAY</button>
-        <button id="m5">LOCAL</button>
+        <button id="m2">ONLINE HOST</button>
+        <button id="m3">ONLINE JOIN</button>
+        <button id="m5">GAME MODES</button>
         <button id="m8">CHARACTERS</button>
         <button id="m6">SHOP</button>
         <button id="m7">SETTINGS</button>
       </nav>
 
-      <main class="homeMain homeMinimal">
+      <main class="homeMain">
         <div class="homeEyebrow">DUEL SYSTEM // READY</div>
-        <button class="bigPlay" id="m4">PLAY</button>
+        <h2>ENTER THE<br>LINE.</h2>
+        <p class="homeDesc">Fast two-player duels built around aim, timing and reading the other player. Every shot can become a threat.</p>
+        <div class="playRow">
+          <button class="bigPlay" id="m4">PLAY VS CPU</button>
+          <button class="quickBtn" id="quickLocal">LOCAL DUEL</button>
+        </div>
         <div class="homeMeta">
           <div class="homeStat"><b>${unlockedCount}/${CHARS.length}</b><span>Fighters</span></div>
           <div class="homeStat"><b>${ARENAS.length}</b><span>Arenas</span></div>
-          <div class="homeStat"><b>${PROGRESS.coins}</b><span>Salt Coins</span></div>
+          <div class="homeStat"><b>${WINS_NEEDED}</b><span>Rounds to win</span></div>
         </div>
       </main>
 
@@ -1818,8 +1700,11 @@ function menuCard(){
       </div>
     </div>
   `, false);
-  document.getElementById("m1").onclick = () => modeCard();
-  document.getElementById("m4").onclick = () => modeCard();
+  document.getElementById("m1").onclick = uiStartLocal;
+  document.getElementById("quickLocal").onclick = uiStartLocal;
+  document.getElementById("m4").onclick = uiStartCPU;
+  document.getElementById("m2").onclick = hostFlow;
+  document.getElementById("m3").onclick = joinFlow;
   document.getElementById("m5").onclick = () => modeCard();
   document.getElementById("m6").onclick = shopCard;
   document.getElementById("m8").onclick = skinsCard;
@@ -1853,11 +1738,11 @@ function beatCard(i, resultLine, names){
   const p1 = names[0], p2 = names[1];
   show(`
     ${resultLine ? `<div class="kicker">${resultLine}</div>`
-                 : game.livesMode ? `<div class="kicker">3 LIVES · ONE ARENA</div>` : `<div class="kicker">Round ${i+1} of ${WINS_NEEDED*2-1} (max)</div>`}
+                 : `<div class="kicker">Round ${i+1} of ${WINS_NEEDED*2-1} (max)</div>`}
     <h2><span style="color:${p1.color}">${p1.name}</span>
         <span style="color:var(--dim);font-weight:400"> vs </span>
         <span style="color:${p2.color}">${p2.name}</span></h2>
-    <p>${game.livesMode ? "Three lives. Lose one and you return to your spawn under a 2-second shield." : `First to ${WINS_NEEDED} round wins takes the match.`} Ammo pickups are scattered
+    <p>First to ${WINS_NEEDED} round wins takes the match. Ammo pickups are scattered
        around the arena — grab them to keep firing. Parry to catch a live shot and send
        it back, shield a hit for 0.5s (3s cooldown), dash to close distance or duck out of the line.
        Every keeper has a unique <b>special ability</b>, ready at the start of each round and back after a 6s cooldown.</p>
@@ -1965,10 +1850,6 @@ function wireChannel(){
     }catch{return;}
     if(!msg || typeof msg !== "object") return;
     if (netMode === "host" && msg.i) remotePkt = msg.i;
-    else if (netMode === "guest" && msg.lobby){
-      GAME_MODE = msg.lobby.mode || GAME_MODE; applyModifierSnapshot(msg.lobby.mods);
-      if(state !== ST.SELECT) startSelect();
-    }
     else if (netMode === "guest" && msg.s) guestApply(msg.s, msg.u);
   };
   if(typeof ch.on === "function"){
@@ -2106,7 +1987,7 @@ function guestApply(s,u){
   game.applySnapshot(s);
   if(game.motes.length<nMotes&&lastPos)game.burst(lastPos.x,lastPos.y,"#cfe6ff",8);
   for(let i=0;i<2;i++)if(wasAlive[i]&&!game.players[i].alive)game.burst(game.players[i].x,game.players[i].y,game.players[i].char.color,46,260);
-  if(u.mode)GAME_MODE=u.mode; if(u.mods)applyModifierSnapshot(u.mods);
+  if(u.mode)GAME_MODE=u.mode;
   if(u.sel){SELECT_STATE.cursor=u.sel.c;SELECT_STATE.locked=u.sel.l;}
   const key=JSON.stringify(u);
   if(key!==lastUiKey){lastUiKey=key;state=u.st;
@@ -2491,7 +2372,7 @@ let cardIdx = 0, resultLine = "", epiWinner = 0;
 function seatNames(){ return game.players.map(p => p.char); }
 
 function uiPacket(){
-  return { st:state, mode:GAME_MODE, mods:modifierSnapshot(), i:cardIdx, r:resultLine, w:epiWinner,
+  return { st:state, mode:GAME_MODE, i:cardIdx, r:resultLine, w:epiWinner,
            sel:{ c:SELECT_STATE.cursor, l:SELECT_STATE.locked } };
 }
 
@@ -2563,20 +2444,12 @@ function beginRound(){
 
 function endOfRound(){
   const w = game.result.winner;
-  if (w === -1){
-    if(game.livesMode){
-      // In 3-lives mode a simultaneous final hit is a draw. Give both keepers
-      // one life back so the match can continue without silently resetting all lives.
-      for(const p of game.players){ p.lives=Math.max(1,p.lives??1); p.alive=true; }
-      resultLine = "Simultaneous — both keepers survive with one life";
-      beginRound();
-      return;
-    }
+  if (w === -1){                                   // both lamps out: nobody profits
     resultLine = "Simultaneous — the round is void";
     beginRound();
     return;
   }
-  if (game.livesMode || game.scores[w] >= (GAME_MODE==="sudden" ? 1 : WINS_NEEDED)){
+  if (game.scores[w] >= (GAME_MODE==="sudden" ? 1 : WINS_NEEDED)){
     epiWinner = w; state = ST.EPI;
     LAST_COINS_EARNED = 0;
     // Coins are earned only by a human beating the CPU — never for CPU vs CPU,
