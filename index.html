@@ -2510,28 +2510,43 @@ function cpuPlan(g, seat, lvl, m){
 
 /* Called every frame: holds the plan, and times the guard press itself. */
 function cpuInput(g, seat, dt){
-  let m = CPU.mem[seat];
-  if (!m || m.round !== g.round){ m = CPU.mem[seat] = cpuMem(); m.round = g.round; }
-  const lvl = CPU_LEVELS[CPU.level];
+  if(!CPU.mem) CPU.mem=[null,null];
+  let m=CPU.mem[seat];
+  if(!m || m.round!==g.round){m=CPU.mem[seat]=cpuMem();m.round=g.round;}
+  const level=clamp(CPU.level|0,0,CPU_LEVELS.length-1);
+  const lvl=CPU_LEVELS[level];
+  m.t-=dt;
+  const i=blankInput(),p=g.players[seat],foe=g.players[1-seat];
+  if(!p || !foe || !p.alive || !foe.alive) return i;
 
-  m.t -= dt;
-  if (m.t <= 0){ m.t = lvl.think; cpuPlan(g, seat, lvl, m); }
+  // Guaranteed baseline brain: continuously move toward a valid line to the
+  // opponent and periodically fire. Difficulty changes reaction speed and
+  // defensive actions, but never disables the CPU completely.
+  if(m.t<=0){
+    m.t=Math.max(.055,lvl.think);
+    const dx=foe.x-p.x,dy=foe.y-p.y,d=len(dx,dy)||1;
+    m.dir=[dx/d,dy/d];
 
-  const i = blankInput();
-  i.ax = m.dir[0]; i.ay = m.dir[1];
-  i.fire = m.fire; i.dash = m.dash; i.special = m.special; i.shield = m.shield;
-  m.fire = m.dash = m.special = m.shield = false;              // an edge lasts one frame
+    if(p.ammo>0 && d<820) m.fire=true;
+    if(p.ready && d<560 && level>=1) m.special=true;
+    if(p.dashCd<=0 && d>250 && d<620 && level>=2) m.dash=true;
 
-  if (m.parryTarget){
-    const p = g.players[seat];
-    const mo = g.motes.find(x => x.id === m.parryTarget);
-    if (!mo || !p.alive) m.parryTarget = 0;
-    else {
-      const d = len(mo.x - p.x, mo.y - p.y);
-      const closing = d / (len(mo.vx, mo.vy) || 1);
-      if (closing <= 0.055 || d <= p.st.parryReach*0.8){ i.parry = true; m.parryTarget = 0; }
+    let near=null,nearD=Infinity;
+    for(const mo of g.motes){
+      if(mo.dead||mo.owner===p.idx) continue;
+      const md=len(mo.x-p.x,mo.y-p.y);
+      if(md<nearD){nearD=md;near=mo;}
+    }
+    if(near && nearD<100){
+      const ax=p.x-near.x,ay=p.y-near.y,l=len(ax,ay)||1;
+      m.dir=[ax/l,ay/l];
+      if(p.shieldCd<=0 && level>=1) m.shield=true;
     }
   }
+
+  i.ax=m.dir?.[0]||0;i.ay=m.dir?.[1]||0;
+  i.fire=!!m.fire;i.dash=!!m.dash;i.special=!!m.special;i.shield=!!m.shield;
+  m.fire=m.dash=m.special=m.shield=false;
   return i;
 }
 
@@ -2570,9 +2585,12 @@ cvs.addEventListener("pointerdown", e => {
         SELECT_STATE.cursor[seat] = idx;
         SELECT_STATE.locked[seat] = true;
         if (CPU.seats[1]) {
-          const cpuIn = cpuSelectInput(1);
-          stepSelect([blankInput(), cpuIn]);
-        }
+           const visible2 = CHARS.map((c,j)=>j).filter(j=>isUnlocked(CHARS[j]));
+           const wanted = CPU_COUNTER[CHARS[SELECT_STATE.cursor[0]]?.id];
+           SELECT_STATE.cursor[1] = visible2.find(j=>CHARS[j].id===wanted) ?? visible2[0] ?? 0;
+           SELECT_STATE.locked[1] = true;
+           beginMatch();
+         }
       }
       break;
     }
@@ -2678,60 +2696,42 @@ class FfaGame extends Game{
 }
 
 function ffaInput(g,seat,dt){
-  // FFA has its own CPU brain. Do not depend on the normal 2-seat CPU state.
   if(!CPU.mem) CPU.mem=[];
   const m=CPU.mem[seat]||(CPU.mem[seat]=cpuMem());
+  const personalLevel=clamp(FFA_CPU_LEVELS[seat] ?? 2,0,CPU_LEVELS.length-1);
+  const lvl=CPU_LEVELS[personalLevel];
   m.t-=dt;
   const i=blankInput(),p=g.players[seat];
-  if(!p?.alive) return i;
-
+  if(!p || !p.alive) return i;
   if(m.t<=0){
-    const personalLevel=clamp(FFA_CPU_LEVELS[seat] ?? 2,0,CPU_LEVELS.length-1);
-    const lvl=CPU_LEVELS[personalLevel];
-    m.t=Math.max(0.06,lvl.think);
-
+    m.t=Math.max(0.055,lvl.think);
     let target=null,best=Infinity;
     for(const q of g.players){
       if(q.idx===seat || !q.alive) continue;
       const d=len(q.x-p.x,q.y-p.y);
-      if(d<best){best=d;target=q}
+      if(d<best){best=d;target=q;}
     }
-
     if(target){
-      let dx=target.x-p.x,dy=target.y-p.y,d=len(dx,dy)||1;
-      // Always give the CPU a movement direction, even when it is out of range.
+      const dx=target.x-p.x,dy=target.y-p.y,d=len(dx,dy)||1;
       m.dir=[dx/d,dy/d];
-
-      // Aim at the target and shoot whenever the difficulty allows it.
-      if(p.ammo>0 && best<760) m.fire=true;
-      if(p.ready && best<520) m.special=true;
-
-      // Move away from incoming projectiles.
+      if(p.ammo>0 && best<900) m.fire=true;
+      if(p.ready && best<600) m.special=true;
+      if(p.dashCd<=0 && best>260 && best<720 && personalLevel>=1) m.dash=true;
       let near=null,nearD=Infinity;
-      for(const mote of g.motes){
-        if(mote.dead||mote.owner===seat) continue;
-        const md=len(mote.x-p.x,mote.y-p.y);
-        if(md<nearD){nearD=md;near=mote}
+      for(const mo of g.motes){
+        if(mo.dead||mo.owner===seat) continue;
+        const md=len(mo.x-p.x,mo.y-p.y);
+        if(md<nearD){nearD=md;near=mo;}
       }
-      if(near && nearD<90){
+      if(near && nearD<105){
         const ax=p.x-near.x,ay=p.y-near.y,l=len(ax,ay)||1;
         m.dir=[ax/l,ay/l];
-        if(p.shieldCd<=0) m.shield=true;
+        if(p.shieldCd<=0 && personalLevel>=1) m.shield=true;
       }
-
-      // Occasionally dash toward the target at higher levels.
-      if(personalLevel>=2 && p.dashCd<=0 && best>220 && best<650) m.dash=true;
-    }else{
-      m.dir=[0,0];
-    }
+    } else m.dir=[1,0];
   }
-
-  i.ax=m.dir?.[0]||0;
-  i.ay=m.dir?.[1]||0;
-  i.fire=!!m.fire;
-  i.special=!!m.special;
-  i.shield=!!m.shield;
-  i.dash=!!m.dash;
+  i.ax=m.dir?.[0]||0; i.ay=m.dir?.[1]||0;
+  i.fire=!!m.fire; i.special=!!m.special; i.shield=!!m.shield; i.dash=!!m.dash;
   m.fire=m.special=m.shield=m.dash=false;
   return i;
 }
@@ -2763,18 +2763,18 @@ function ffaConfigCard(){
       <div class="kicker" style="margin-top:22px">HOW MANY CPU SLOTS?</div>
       <div class="ffaCountRow">${[1,2,3,4,5,6,7].map(n=>`<button class="ffaCount ${n===count?"selected":""}" id="fc${n}">${n}</button>`).join("")}</div>
 
-      <div class="kicker" style="margin-top:22px">SELECT A CPU TO EDIT IT</div>
+      <div class="kicker" style="margin-top:22px">SELECT A CPU</div>
       <div class="ffaCountRow" style="grid-template-columns:repeat(${Math.min(count,7)},1fr)">
         ${Array.from({length:count},(_,i)=>{
           const cc=CHARS.find(x=>x.id===picks[i])||avail[0];
           return `<button class="ffaCount ${i===activeSlot?"selected":""}" id="slot${i}">
-            <b>CPU ${i+1}</b><br><span style="color:${cc.color}">${cc.name}</span><br><small>${active[i]?"ENABLED":"DISABLED"}</small>
+            <b>SELECT CPU ${i+1}</b><br><span style="color:${cc.color}">${cc.name}</span><br><small>${active[i]?"ENABLED":"DISABLED"}</small>
           </button>`;
         }).join("")}
       </div>
 
       <div class="rule"></div>
-      <div class="kicker">CPU ${activeSlot+1} SETTINGS</div>
+      <div class="kicker">SELECTED: CPU ${activeSlot+1}</div>
       <button class="diffBtn" id="ftoggle"><b>${active[activeSlot]?"✓ ENABLED":"✕ DISABLED"}</b><span style="float:right;color:var(--muted)">${active[activeSlot]?"this CPU will fight":"this CPU will sit out"}</span></button>
 
       <div class="kicker" style="margin-top:14px">LEVEL</div>
@@ -2950,6 +2950,7 @@ function beginMatch(){
   MATCH_NO++;
   game = new Game(SELECT_STATE.cursor.slice());
   cardIdx = 0; resultLine = "";
+  if (CPU.seats[1]) { beginRound(); return; }
   state = ST.CARD;
   beatCard(0, "", seatNames());
 }
