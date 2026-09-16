@@ -147,6 +147,8 @@
 @media(max-width:600px){.shopSkinGrid{grid-template-columns:repeat(2,1fr)}}
 
 .modRow{display:flex;gap:14px;align-items:flex-start;padding:14px 10px;border:1px solid var(--edge);background:rgba(10,17,26,.62);margin:8px 0;cursor:pointer;transition:transform .16s,border-color .16s,background .16s}.modRow:hover{transform:translateX(3px);border-color:rgba(200,220,245,.38);background:rgba(18,29,42,.82)}.modRow input{width:18px;height:18px;margin-top:2px;accent-color:#dcecff}.modRow span{display:flex;flex-direction:column;gap:4px}.modRow b{font:700 12px ui-monospace,monospace;letter-spacing:.12em;color:#f3f7fb}.modRow small{font:500 10px/1.5 ui-monospace,monospace;color:rgba(210,225,240,.55)}.modeBtn.selected{border-color:rgba(220,235,255,.7);box-shadow:0 0 0 1px rgba(220,235,255,.12) inset}.modeDesc{margin-top:7px;font:500 9px/1.4 ui-monospace,monospace;color:rgba(210,225,240,.52)}.playWays{grid-template-columns:repeat(4,1fr)}
+
+.tidelineUI #overlay{font-family:Inter,ui-sans-serif,system-ui,sans-serif;background:linear-gradient(135deg,rgba(3,11,16,.98),rgba(7,28,35,.96))}.tidelineUI #overlay .card{max-width:1180px;margin:auto;padding:48px 64px}.tidelineUI .homeBrand h1{font-family:Inter,ui-sans-serif,sans-serif;font-weight:900}.tidelineUI .modeBtn,.tidelineUI .diffBtn{border-radius:4px;background:rgba(16,38,44,.9);border-color:rgba(120,214,180,.18);font-family:Inter,ui-sans-serif,sans-serif}.tidelineUI .modeBtn:hover,.tidelineUI .diffBtn:hover{border-color:#78d6b4}.cpuCountRow{display:grid;grid-template-columns:repeat(6,1fr);gap:8px}.cpuRoster{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}.cpuPick{border:1px solid var(--edge);padding:10px 12px;background:rgba(15,25,35,.7);font:700 11px ui-monospace,monospace;cursor:pointer}.battleScores{display:grid;gap:8px;margin:20px 0}.battleScores>div{display:grid;grid-template-columns:34px 1fr auto;padding:12px;border:1px solid var(--edge)}@media(max-width:700px){.cpuRoster{grid-template-columns:1fr 1fr}.cpuCountRow{grid-template-columns:repeat(3,1fr)}}
 </style>
 <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/npm/peerjs@1.5.4/dist/peerjs.min.js'"></script>
 </head>
@@ -261,14 +263,17 @@ const CHARS = [
     special:"SINKHOLE", specialText:"Open a hole in the floor that drinks light.",
     ending:"digs down past the door under the cistern and does not write what is there.",
     stats:{ moteSpeed:495, fireCd:0 } },
+  { id:"bracken", name:"BRACKEN", title:"The Anchor", color:"#78d6b4", passive:"Rooted — steadier under pressure, with a heavier shot.", special:"TIDAL PULL", specialText:"Pull nearby live motes toward you for a moment.", ending:"roots itself where the old tide line ends and refuses to be moved.", stats:{ maxSpeed:248, accel:2450, moteSpeed:540, moteRadius:6 } },
+  { id:"wisp", name:"WISP", title:"The Drifter", color:"#d7b6ff", passive:"Slipstream — quick feet and a shorter dash cooldown.", special:"BLINK", specialText:"Teleport forward through the line of fire.", ending:"crosses the drowned road in one blink and leaves only a light behind.", stats:{ maxSpeed:292, accel:2750, dashCd:1.05 } },
 ];
 CHARS.forEach(c => c.st = Object.assign({}, BASE, c.stats));
 
 /* ---------- unlocks ----------
    Ines and Cato are free. Everyone else is bought with salt-coins,
    earned by beating the CPU. */
-const UNLOCK_COST = { ines:0, cato:0, meran:120, odall:150, silt:150, vane:180, keel:180, auger:220 };
-const CPU_WIN_COINS = [40, 55, 70, 110, 160];     // Apprentice, Scout, Keeper, Warden, Harbinger
+const UNLOCK_COST = { ines:0, cato:0, meran:120, odall:150, silt:150, vane:180, keel:180, auger:220, bracken:260, wisp:300 };
+const CPU_WIN_COINS = [40, 55, 70, 110, 160];
+const UI_PACK_COST=280, UI_PACK_KEY="saltline_ui_pack_v1"; let UI_PACK_OWNED=false; try{UI_PACK_OWNED=localStorage.getItem(UI_PACK_KEY)==="1";}catch(e){} function applyUiPack(){document.documentElement.classList.toggle("tidelineUI",UI_PACK_OWNED);} applyUiPack();     // Apprentice, Scout, Keeper, Warden, Harbinger
 
 const PROGRESS_KEY = "saltline_progress_v1";
 const FREE_MAP_COUNT = 9;
@@ -384,12 +389,15 @@ const GAME_MODES={
  frenzy:{name:"Ammo Frenzy",desc:"Ten-shot magazines and fast respawning ammo caches."},
  tide:{name:"Closing Tide",desc:"The arena starts closing after 18 seconds. Keep moving."}
 };
+let BATTLE_CFG={kind:"battleRoyale",cpuCount:4,cpuIds:[]};
+function battleConfigCard(kind){BATTLE_CFG.kind=kind;const ids=CHARS.filter(isUnlocked).map(c=>c.id);if(!BATTLE_CFG.cpuIds.length)BATTLE_CFG.cpuIds=ids.filter(id=>id!=="ines").slice(0,4);const title=kind==="battleRoyale"?"Battle Royale":"Kill Count";const desc=kind==="battleRoyale"?"One life. Everyone fights everyone. Last keeper standing wins.":"Two minutes. Infinite respawns. Highest kill count wins.";show(`<div class="kicker">One Player</div><h2>${title}</h2><p class="hint">${desc}</p><div class="rule"></div><div class="kicker">CPU COUNT</div><div class="cpuCountRow">${[2,3,4,5,6,7].map(n=>`<button class="utilityBtn ${BATTLE_CFG.cpuCount===n?'selected':''}" id="bc${n}">${n} CPUs</button>`).join("")}</div><div class="kicker" style="margin-top:24px">CPU ROSTER</div><div class="cpuRoster">${ids.map(id=>{const c=CHARS.find(x=>x.id===id);return `<label class="cpuPick"><input type="checkbox" data-cpu="${id}" ${BATTLE_CFG.cpuIds.includes(id)?"checked":""}><span style="color:${c.color}">${c.name}</span></label>`}).join("")}</div><p class="hint" id="battleHint">Choose exactly ${BATTLE_CFG.cpuCount} CPUs.</p><button class="diffBtn" id="battleStart"><b>CHOOSE YOUR FIGHTER</b></button><button class="backBtn" id="battleBack">‹ BACK</button>`,true);[2,3,4,5,6,7].forEach(n=>document.getElementById("bc"+n).onclick=()=>{BATTLE_CFG.cpuCount=n;BATTLE_CFG.cpuIds=[];battleConfigCard(kind);});document.querySelectorAll("[data-cpu]").forEach(el=>el.onchange=()=>{const id=el.dataset.cpu;if(el.checked){if(BATTLE_CFG.cpuIds.length>=BATTLE_CFG.cpuCount){el.checked=false;return;}BATTLE_CFG.cpuIds.push(id);}else BATTLE_CFG.cpuIds=BATTLE_CFG.cpuIds.filter(x=>x!==id);});document.getElementById("battleStart").onclick=()=>{if(BATTLE_CFG.cpuIds.length!==BATTLE_CFG.cpuCount){document.getElementById("battleHint").textContent=`Select exactly ${BATTLE_CFG.cpuCount} CPUs.`;return;}netMode="local";CPU.level=2;CPU.seats=[false,...BATTLE_CFG.cpuIds.map(()=>true)];startSelect();};document.getElementById("battleBack").onclick=()=>modeCard();}
+
 function modeCard(next){
  const showPlayWays = !next;
  const lobbyLabel = netMode === "host" ? "LOCAL · HOST" : netMode === "guest" ? "LOCAL · JOIN" : (CPU.seats[1] ? "LOCAL · CPU" : "LOCAL · 2 PLAYER");
  show(`<div class="kicker">Lobby</div><h2>Choose how to play</h2>
  <div class="lobbyBar"><span>LOCAL <b>${lobbyLabel}</b></span><span class="onlineTag">${netMode === "host" || netMode === "guest" ? "FRIEND CONNECTED" : "READY"}</span></div>
- ${showPlayWays ? `<div class="modeGrid playWays"><button class="modeBtn" id="playLocal"><div class="num">PLAY</div><div class="lbl">2 PLAYER</div><div class="modeDesc">Two players on one PC.</div></button><button class="modeBtn" id="playCpu"><div class="num">PLAY</div><div class="lbl">VS CPU</div><div class="modeDesc">Fight through five CPU difficulties.</div></button></div>` : ""}
+ ${showPlayWays ? `<div class="modeGrid playWays"><button class="modeBtn" id="playLocal"><div class="num">PLAY</div><div class="lbl">2 PLAYER</div><div class="modeDesc">Two players on one PC.</div></button><button class="modeBtn" id="playCpu"><div class="num">PLAY</div><div class="lbl">VS CPU</div><div class="modeDesc">Fight through five CPU difficulties.</div></button><button class="modeBtn" id="playBR"><div class="num">1 PLAYER</div><div class="lbl">BATTLE ROYALE</div><div class="modeDesc">One life. You versus every chosen CPU.</div></button><button class="modeBtn" id="playKC"><div class="num">1 PLAYER</div><div class="lbl">KILL COUNT</div><div class="modeDesc">Two minutes. Infinite respawns. Most kills wins.</div></button></div>` : ""}
  <div class="rule"></div>
  <div class="modeGrid">${Object.entries(GAME_MODES).map(([id,m],i)=>`<button class="modeBtn ${GAME_MODE===id?'selected':''}" id="gm_${id}"><div class="num">${i+1} · MODE</div><div class="lbl">${m.name}</div><div class="modeDesc">${m.desc}</div></button>`).join("")}</div>
  <button class="diffBtn" id="modBtn"><b>GAMEPLAY MODIFIERS</b><span style="float:right;color:var(--muted)">${modifierSummary()}</span></button>
@@ -398,7 +406,9 @@ function modeCard(next){
  if(playLocal) playLocal.onclick=()=>{netMode="local";CPU.seats=[false,false];startSelect();};
  const playCpu=document.getElementById("playCpu");
  if(playCpu) playCpu.onclick=()=>{state=ST.DIFF;difficultyCard();};
-  Object.keys(GAME_MODES).forEach(id=>document.getElementById("gm_"+id).onclick=()=>{ GAME_MODE=id; syncLobby(); if (typeof next === "function") next(); else modeCard(); });
+ const playBR=document.getElementById("playBR"); if(playBR) playBR.onclick=()=>battleConfigCard("battleRoyale");
+ const playKC=document.getElementById("playKC"); if(playKC) playKC.onclick=()=>battleConfigCard("killCount");
+  Object.keys(GAME_MODES).filter(id=>id!=="battleRoyale"&&id!=="killCount").forEach(id=>document.getElementById("gm_"+id).onclick=()=>{ GAME_MODE=id; syncLobby(); if (typeof next === "function") next(); else modeCard(); });
  document.getElementById("modBtn").onclick=()=>modifierCard(next);
  document.getElementById("gmback").onclick=toMenu;
 }
@@ -483,13 +493,14 @@ function shopCard(){
    const own=skinOwned(c.id,i);
    return `<button class="shopSkin" id="shopSkin_${c.id}_${i}"><div class="shopSkinTop"><span>${c.name}</span><span>${own?"OWNED":"◆ "+SKIN_COSTS[i]}</span></div><div class="skinPreview" style="--sp-a:${SKIN_PALETTES[c.id][i][2]};--sp-b:${SKIN_PALETTES[c.id][i][0]}"></div><b>${skinName(c.id,i)}</b></button>`;
  })).join("")}</div>
- <div class="shopFoot">${ownedFighters}/${CHARS.length} FIGHTERS OWNED · COSMETICS ARE COSMETIC ONLY</div>
+ <div class="kicker" style="margin-top:30px">UI PACK</div><button class="modeBtn" id="uiPack"><div class="num">${UI_PACK_OWNED?"OWNED":"◆ "+UI_PACK_COST}</div><div class="lbl">TIDELINE UI</div><div class="modeDesc">Alternate fonts, layout and colours.</div></button><div class="shopFoot">${ownedFighters}/${CHARS.length} FIGHTERS OWNED</div>
  <button class="backBtn" id="shopback">‹ BACK</button>`, true);
  CHARS.forEach(c=>document.getElementById("shop_"+c.id).onclick=()=>{if(!isUnlocked(c)&&tryUnlock(c))shopCard();});
  CHARS.forEach(c=>SKIN_STYLES.forEach((st,i)=>{
    const el=document.getElementById(`shopSkin_${c.id}_${i}`);
    if(el) el.onclick=()=>{ if(!isUnlocked(c)) return; if(skinOwned(c.id,i)||buySkin(c.id,i)){ setEquippedSkin(0,c.id,i); shopCard(); } };
  }));
+ document.getElementById("uiPack").onclick=()=>{if(UI_PACK_OWNED)return;if(PROGRESS.coins<UI_PACK_COST)return;PROGRESS.coins-=UI_PACK_COST;UI_PACK_OWNED=true;localStorage.setItem(UI_PACK_KEY,"1");applyUiPack();shopCard();};
  document.getElementById("shopback").onclick=toMenu;
 }
 
@@ -526,6 +537,13 @@ function arenaById(id){ return ARENAS.find(a => a.id === id) || null; }
 const DEFAULT_PICKS = [0, 1];           // Ines and Cato hold the tower by default
 
 /* ---------- arenas (all 180deg-rotationally symmetric: no side has an edge) ---------- */
+const BATTLE_ARENA={id:"battle_expanse",name:"The Expanse",worldW:1440,worldH:900,walls:[{x:650,y:180,w:140,h:30},{x:650,y:690,w:140,h:30},{x:350,y:400,w:220,h:34},{x:870,y:466,w:220,h:34},{x:690,y:410,w:60,h:80,void:true}],spawns:[[120,120],[1320,120],[120,780],[1320,780],[720,90],[720,810],[90,450],[1350,450]],pickups:[[250,250],[1190,250],[250,650],[1190,650],[720,250],[720,650],[430,120],[1010,780]]};
+class BattleGame extends Game{
+ constructor(kind,playerId,cpuIds){super([playerId,cpuIds[0]||1]);this.battleMode=true;this.battleKind=kind;this.players=[new Player(0),...cpuIds.map((id,i)=>new Player(i+1))];this.scores=new Array(this.players.length).fill(0);CPU.seats=new Array(this.players.length).fill(false);for(let i=1;i<this.players.length;i++)CPU.seats[i]=true;this.players[0].charId=playerId;cpuIds.forEach((id,i)=>this.players[i+1].charId=id);this.loadRound();}
+ loadRound(){this.arena=BATTLE_ARENA;this.worldW=1440;this.worldH=900;this.walls=this.arena.walls.map(w=>({...w}));this.temps=[];this.rings=[];this.motes=[];this.sparks=[];this.pickups=this.arena.pickups.map(pt=>({x:pt[0],y:pt[1],cd:0}));this.time=0;this.encroach=0;this.closeTimer=0;this.overTimer=0;this.result=null;this.countdown=1.1;const sp=this.arena.spawns;this.players.forEach((p,i)=>{p.reset(sp[i][0],sp[i][1]);p.lives=1;p.score=0;p.idx=i;});}
+ step(dt,inputs){if(this.shake>0)this.shake=Math.max(0,this.shake-dt*3.5);if(this.countdown>0){this.countdown=Math.max(0,this.countdown-dt);this.stepSparks(dt);return;}this.time+=dt;if(this.battleKind==="battleRoyale"&&this.time>120){this.closeTimer+=dt;if(this.closeTimer>.8){this.closeTimer-=.8;this.encroach=Math.min(330,this.encroach+18);}}if(this.battleKind==="killCount"&&this.time>=120&&!this.result){this.result={winner:this.players.reduce((a,p)=>(p.score||0)>(this.players[a].score||0)?p.idx:a,0)};this.overTimer=0;return;}if(!this.result){for(let i=this.temps.length-1;i>=0;i--){this.temps[i].ttl-=dt;if(this.temps[i].ttl<=0)this.temps.splice(i,1);}this.players.forEach((p,i)=>this.stepPlayer(p,inputs[i]||blankInput(),dt));for(let i=this.rings.length-1;i>=0;i--){this.rings[i].t+=dt;if(this.rings[i].t>=this.rings[i].life)this.rings.splice(i,1);}this.stepMotes(dt);this.stepPickups(dt);this.checkBattleDeaths();}else this.overTimer=(this.overTimer||0)+dt;this.stepSparks(dt);}
+ checkBattleDeaths(){if(this.result)return;const dead=[];for(const p of this.players){if(!p.alive)continue;const b=this.bounds();if(p.x<b.x||p.x>b.x+b.w||p.y<b.y||p.y>b.y+b.h)dead.push({p,owner:-1});for(const mo of this.motes){if(mo.dead)continue;if(mo.owner===p.idx&&((p.idx===0&&GAME_MODIFIERS.noSelfDeath)||(p.idx>0&&GAME_MODIFIERS.noCpuSelfDeath)))continue;if(!mo.armed&&mo.owner===p.idx)continue;const d=len(mo.x-p.x,mo.y-p.y);if(d<=p.st.radius+mo.radius){if(p.shieldT>0){mo.dead=true;continue;}dead.push({p,owner:mo.owner});mo.dead=true;}}}const seen=new Set();for(const x of dead){if(seen.has(x.p.idx))continue;seen.add(x.p.idx);if(this.battleKind==="killCount"){if(x.owner>=0&&x.owner!==x.p.idx)this.players[x.owner].score=(this.players[x.owner].score||0)+1;const sp=this.arena.spawns[x.p.idx%this.arena.spawns.length];x.p.x=sp[0];x.p.y=sp[1];x.p.vx=x.p.vy=0;x.p.alive=true;x.p.shieldT=1;x.p.respawnLock=1;x.p.fireBuffer=0;}else{x.p.alive=false;if(x.owner>=0&&x.owner!==x.p.idx)this.players[x.owner].score=(this.players[x.owner].score||0)+1;}}this.motes=this.motes.filter(m=>!m.dead);if(this.battleKind==="battleRoyale"){const alive=this.players.filter(p=>p.alive);if(alive.length<=1)this.result={winner:alive.length?alive[0].idx:-1};}}}
+
 const ARENAS = [
   { name:"The Lamp Room",
     walls:[ {x:430,y:250,w:100,h:100},
@@ -821,7 +839,7 @@ class Game {
                            // answer to a position must not depend on how many
                            // motes the page happened to spawn before this one
 
-    this.arena = forcedArena || arenaForRound(i);
+    this.arena = forcedArena || arenaForRound(i); this.worldW=this.arena.worldW||W; this.worldH=this.arena.worldH||H;
     this.walls = this.arena.walls.map(w => ({...w}));
     this.temps = [];                 // walls conjured by specials
     this.rings = [];
@@ -844,10 +862,7 @@ class Game {
   // Every solid thing a mote or a keeper can meet, arena and conjured alike.
   get obstacles(){ return this.walls.concat(this.temps); }
 
-  bounds(){
-    const e = this.encroach;
-    return {x:e, y:e, w:W-2*e, h:H-2*e};
-  }
+  bounds(){const e=this.encroach,ww=this.worldW||W,hh=this.worldH||H;return{x:e,y:e,w:ww-2*e,h:hh-2*e};}
 
   step(dt, inputs){
     if (this.shake > 0) this.shake = Math.max(0, this.shake - dt*3.5);
@@ -911,7 +926,7 @@ class Game {
     p.dashT   = Math.max(0, p.dashT   - dt);
     p.flash   = Math.max(0, p.flash   - dt);
     p.ghost   = Math.max(0, p.ghost   - dt);
-    p.burstT  = Math.max(0, p.burstT  - dt);
+    p.burstT  = Math.max(0, p.burstT  - dt); p.pullT=Math.max(0,(p.pullT||0)-dt);
     p.specialCd = Math.max(0, p.specialCd - dt);
 
     p.hist.push(p.x, p.y);
@@ -1084,13 +1099,9 @@ class Game {
         this.shake = Math.max(this.shake, 0.5);
         break;
 
-      case "auger": {                    // SINKHOLE — a hole that drinks light
-        const s = 74;
-        this.temps.push({ x: clamp(p.x + p.fx*62 - s/2, 2, W-s-2),
-                          y: clamp(p.y + p.fy*62 - s/2, 2, H-s-2),
-                          w:s, h:s, ttl:6, void:true, owner:p.idx });
-        break;
-      }
+      case "auger": { const s=74,b=this.bounds(); this.temps.push({x:clamp(p.x+p.fx*62-s/2,b.x+2,b.x+b.w-s-2),y:clamp(p.y+p.fy*62-s/2,b.y+2,b.y+b.h-s-2),w:s,h:s,ttl:6,void:true,owner:p.idx}); break; }
+      case "bracken": p.pullT=.9; break;
+      case "wisp": { const b=this.bounds(),d=150;p.x=clamp(p.x+p.fx*d,b.x+p.st.radius,b.x+b.w-p.st.radius);p.y=clamp(p.y+p.fy*d,b.y+p.st.radius,b.y+b.h-p.st.radius);this.confinePlayer(p);this.burst(p.x,p.y,p.char.color,22,210);break; }
     }
   }
 
@@ -1101,6 +1112,7 @@ class Game {
       mo.age += dt;
       if (!mo.armed && mo.age >= mo.armTime) mo.armed = true;
       if (mo.age >= mo.life) { this.fizzle(mo); continue; }
+      for(const p of this.players){if(p.pullT>0&&p.alive&&p.idx!==mo.owner){const dx=p.x-mo.x,dy=p.y-mo.y,d=Math.hypot(dx,dy)||1;if(d<260){mo.vx+=dx/d*520*dt;mo.vy+=dy/d*520*dt;}}}
 
       mo.trail.push(mo.x, mo.y);
       if (mo.trail.length > 16) mo.trail.splice(0, mo.trail.length - 16);
@@ -1410,6 +1422,7 @@ function render(g, ui){
   const grd = ctx.createRadialGradient(W/2, H/2, 40, W/2, H/2, W*0.75);
   grd.addColorStop(0, "#132132"); grd.addColorStop(1, "#070b12");
   ctx.fillStyle = grd; ctx.fillRect(0,0,W,H);
+  if(g.battleMode){const f=g.players[0]||{x:W/2,y:H/2},z=.72;ctx.translate(W/2-f.x*z,H/2-f.y*z);ctx.scale(z,z);}
 
   if (g.shake > 0){
     const s = g.shake * 7;
@@ -1603,8 +1616,10 @@ function render(g, ui){
   }
 
   ctx.restore();
-  drawHUD(g, ui);
+  if(g.battleMode) drawBattleHUD(g,ui); else drawHUD(g,ui);
 }
+
+function drawBattleHUD(g,ui){ctx.textBaseline="top";ctx.textAlign="left";ctx.font="800 12px ui-monospace,monospace";ctx.fillStyle="#fff";ctx.fillText(g.battleKind==="battleRoyale"?"BATTLE ROYALE":"KILL COUNT",20,16);ctx.textAlign="center";ctx.font="800 18px ui-monospace,monospace";ctx.fillText(g.battleKind==="killCount"?Math.max(0,120-g.time).toFixed(1):g.time<120?"BORDER IN "+Math.ceil(120-g.time):"BORDER CLOSING",W/2,14);ctx.textAlign="right";ctx.font="700 11px ui-monospace,monospace";g.players.forEach((p,i)=>{ctx.fillStyle=i===0?"#fff":p.char.color;ctx.fillText(`${i===0?"YOU":"CPU"} · ${p.char.name}  ${p.score||0}`,W-20,16+i*18);});}
 
 function bar(x,y,w,h,frac,color){
   ctx.fillStyle = "rgba(255,255,255,.12)"; ctx.fillRect(x,y,w,h);
@@ -2538,7 +2553,8 @@ function startSelect(){
   // Start both cursors on characters that are actually available.
   const visible = CHARS.map((c,i)=>i).filter(i=>isUnlocked(CHARS[i]));
   const a = visible[0] ?? 0, b = visible[1] ?? a;
-  SELECT_STATE = { cursor:[a,b], locked:[false,false], lastAx:[0,0], lastAy:[0,0], msg:"", msgT:0 };
+  const battle=GAME_MODE==="battleRoyale"||GAME_MODE==="killCount";
+  SELECT_STATE = { cursor:[a,b], locked:[false,battle], lastAx:[0,0], lastAy:[0,0], msg:"", msgT:0 };
   state = ST.SELECT;
   hide();
   // Render immediately as well as on the next animation tick. This makes the
@@ -2546,53 +2562,17 @@ function startSelect(){
   renderSelect(SELECT_STATE, { selHint: CPU.seats[1] ? "choose your fighter — the CPU will choose next" : "player one on W A S D, player two on the arrows" });
 }
 
-function stepSelect(inputs){
-  for (let s=0;s<2;s++){
-    const inp = inputs[s];
-    if (SELECT_STATE.locked[s]){
-      if (inp.back) SELECT_STATE.locked[s] = false;     // guard takes your pick back
-      continue;
-    }
-    // move one card per press, not one per frame
-    const ax = Math.sign(inp.ax), ay = Math.sign(inp.ay);
-    const visible = CHARS.map((c,i)=>i).filter(i => isUnlocked(CHARS[i]));
-    let pos = Math.max(0, visible.indexOf(SELECT_STATE.cursor[s]));
-    if (ax !== 0 && ax !== SELECT_STATE.lastAx[s]){
-      const col = pos % SEL_COLS, row = Math.floor(pos / SEL_COLS);
-      pos = row*SEL_COLS + (col + ax + SEL_COLS) % SEL_COLS;
-    }
-    if (ay !== 0 && ay !== SELECT_STATE.lastAy[s]){
-      const rows = Math.max(1, Math.ceil(visible.length / SEL_COLS));
-      const col = pos % SEL_COLS, row = Math.floor(pos / SEL_COLS);
-      pos = ((row + ay + rows) % rows)*SEL_COLS + col;
-    }
-    pos = clamp(pos, 0, visible.length-1);
-    SELECT_STATE.cursor[s] = visible[pos] ?? 0;
-    SELECT_STATE.lastAx[s] = ax; SELECT_STATE.lastAy[s] = ay;
-    if (inp.fire){
-      const c = CHARS[SELECT_STATE.cursor[s]];
-      if (CPU.seats[s] || isUnlocked(c)) SELECT_STATE.locked[s] = true;
-      else if (tryUnlock(c)) SELECT_STATE.locked[s] = true;
-      else { SELECT_STATE.msg = "Need " + (UNLOCK_COST[c.id]-PROGRESS.coins) + " more salt-coins for " + c.name; SELECT_STATE.msgT = 2.2; }
-    }
-  }
-  if (SELECT_STATE.msgT > 0) SELECT_STATE.msgT -= 1/60;
-  if (SELECT_STATE.locked[0] && SELECT_STATE.locked[1]) beginMatch();
-}
+function stepSelect(inputs){const battle=GAME_MODE==="battleRoyale"||GAME_MODE==="killCount";const seats=battle?[0]:[0,1];for(const s of seats){const inp=inputs[s];if(SELECT_STATE.locked[s])continue;const ax=Math.sign(inp.ax),ay=Math.sign(inp.ay),visible=CHARS.map((c,i)=>i).filter(i=>isUnlocked(CHARS[i]));let pos=Math.max(0,visible.indexOf(SELECT_STATE.cursor[s]));if(ax&&ax!==SELECT_STATE.lastAx[s]){const col=pos%SEL_COLS,row=Math.floor(pos/SEL_COLS);pos=row*SEL_COLS+(col+ax+SEL_COLS)%SEL_COLS;}if(ay&&ay!==SELECT_STATE.lastAy[s]){const rows=Math.max(1,Math.ceil(visible.length/SEL_COLS)),col=pos%SEL_COLS,row=Math.floor(pos/SEL_COLS);pos=clamp(((row+ay+rows)%rows)*SEL_COLS+col,0,visible.length-1);}pos=clamp(pos,0,visible.length-1);SELECT_STATE.cursor[s]=visible[pos]??0;SELECT_STATE.lastAx[s]=ax;SELECT_STATE.lastAy[s]=ay;if(inp.fire)SELECT_STATE.locked[s]=true;}if(SELECT_STATE.msgT>0)SELECT_STATE.msgT-=1/60;if((battle&&SELECT_STATE.locked[0])||(!battle&&SELECT_STATE.locked[0]&&SELECT_STATE.locked[1]))beginMatch();}
 
-function beginMatch(){
-  MATCH_NO++;
-  game = new Game(SELECT_STATE.cursor.slice());
-  cardIdx = 0; resultLine = "";
-  state = ST.CARD;
-  beatCard(0, "", seatNames());
-}
+function beginMatch(){MATCH_NO++;battleResultShown=false;if(GAME_MODE==="battleRoyale"||GAME_MODE==="killCount"){game=new BattleGame(GAME_MODE,SELECT_STATE.cursor[0],BATTLE_CFG.cpuIds);state=ST.PLAY;hide();return;}game=new Game(SELECT_STATE.cursor.slice());cardIdx=0;resultLine="";state=ST.CARD;beatCard(0,"",seatNames());}
 
 function beginRound(){
   game.loadRound(cardIdx);
   state = ST.PLAY;
   hide();
 }
+
+let battleResultShown=false;function battleResultCard(g){if(battleResultShown)return;battleResultShown=true;const order=g.players.slice().sort((a,b)=>(b.score||0)-(a.score||0)),w=g.battleKind==="battleRoyale"?(g.result.winner>=0?g.players[g.result.winner]:null):order[0];show(`<div class="kicker">${g.battleKind==="battleRoyale"?"BATTLE ROYALE COMPLETE":"KILL COUNT COMPLETE"}</div><h2>${w?w.char.name:"DRAW"} ${w?"WINS":""}</h2><div class="battleScores">${order.map((p,i)=>`<div><span>${i+1}</span><b style="color:${p.char.color}">${p.idx===0?"YOU · ":""}${p.char.name}</b><strong>${p.score||0}</strong></div>`).join("")}</div><p class="hint blink">Press fire to play again · ESC for menu</p>`);state=ST.EPI;}
 
 function endOfRound(){
   const w = game.result.winner;
@@ -2637,6 +2617,8 @@ const FIXED = 1/120;
 let acc = 0, last = performance.now();
 
 let keepInputEdge = false;
+const BATTLE_CPU_MEM={};function battleCpuInput(g,seat,dt){const i=blankInput(),p=g.players[seat];if(!p||!p.alive)return i;let m=BATTLE_CPU_MEM[seat]||(BATTLE_CPU_MEM[seat]={t:0,fire:0});m.t-=dt;m.fire-=dt;const ts=g.players.filter(x=>x.alive&&x.idx!==seat).sort((a,b)=>len(a.x-p.x,a.y-p.y)-len(b.x-p.x,b.y-p.y));if(!ts.length)return i;const t=ts[0],dx=t.x-p.x,dy=t.y-p.y,d=Math.hypot(dx,dy)||1;i.ax=dx/d;i.ay=dy/d;p.fx=i.ax;p.fy=i.ay;if(m.fire<=0&&d<700){i.fire=true;m.fire=.45+Math.random()*.6;}if(m.t<=0){m.t=.18+Math.random()*.2;if(d<150){i.ax=-dy/d;i.ay=dx/d;}if(Math.random()<.08)i.dash=true;if(Math.random()<.04)i.special=true;if(Math.random()<.12)i.shield=true;}return i;}
+
 function tick(now){
   requestAnimationFrame(tick);
   keepInputEdge = false;
@@ -2654,6 +2636,7 @@ function tick(now){
   }
 
   const seatInputs = () => {
+    if(game && game.battleMode){const a=[readInput(0)];for(let i=1;i<game.players.length;i++)a[i]=battleCpuInput(game,i,dt);return a;}
     if (netMode === "host") return [readInput(0), remoteInput()];
     return [0,1].map(s => CPU.seats[s] ? cpuInput(game, s, dt) : readInput(s));
   };
@@ -2711,7 +2694,7 @@ function tick(now){
         }
       }
       render(game, { netLabel: netMode === "host" ? "ONLINE — you hold the left seat" : "" });
-      if (game.result && game.overTimer > 1.8) endOfRound();
+      if(game.result&&game.battleMode&&game.overTimer>1.2)battleResultCard(game); else if(game.result&&game.overTimer>1.8)endOfRound();
       // If this animation frame did not reach a fixed simulation step, keep
       // keyboard/mouse edge presses alive for the next frame. Otherwise a
       // fast frame could swallow the player's fire/parry/dash press while
