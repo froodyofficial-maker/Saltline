@@ -289,9 +289,9 @@ CHARS.push(
     specialText:"Pull nearby motes toward you, then throw them back.",
     ending:"waits below the old pier until the water remembers his name.",
     stats:{maxSpeed:252,moteSpeed:505,bounceGain:1.04}},
-  { id:"wisp", name:"WISP", title:"The Blinkwalker", color:"#c9a7ff",
-    passive:"Flicker — quick feet and a shorter special cooldown.", special:"BLINK",
-    specialText:"Blink a short distance in the direction you're facing.",
+  { id:"wisp", name:"WISP", title:"The Veilwalker", color:"#c9a7ff",
+    passive:"Flicker — quick feet and a shorter special cooldown.", special:"VEIL / BLACKOUT",
+    specialText:"Online: vanish from the opponent's view. Local 2 Player: blackout the opponent's controls briefly. Solo FFA keeps Blink.",
     ending:"leaves a light on in the drowned rooms, just in case something comes home.",
     stats:{maxSpeed:285,accel:2750}}
 );
@@ -517,6 +517,7 @@ function buyUiTheme(){
   if(PROGRESS.coins<UI_THEME_COST) return false;
   PROGRESS.coins-=UI_THEME_COST;PROGRESS.uiTheme="tideline";saveProgress();return true;
 }
+function dequipUiTheme(){ PROGRESS.uiTheme="classic"; saveProgress(); }
 function shopCard(){
  ensureSkinProgress();
  const ownedFighters=CHARS.filter(isUnlocked).length;
@@ -530,7 +531,7 @@ function shopCard(){
  })).join("")}</div>
   <div class="kicker" style="margin-top:30px">UI OVERHAUL</div>
   <div class="shopUiCard"><div><div class="shopSkinTop"><span>TIDELINE UI</span><span>${PROGRESS.uiTheme==="tideline"?"OWNED":"◆ "+UI_THEME_COST}</span></div><div class="lbl" style="margin-top:8px">New typography, panels, spacing and colour treatment.</div></div><div class="shopUiSwatch"></div></div>
-  <button class="diffBtn" id="buyUi">${PROGRESS.uiTheme==="tideline"?"EQUIPPED":"BUY UI OVERHAUL"}</button>
+  <button class="diffBtn" id="buyUi">${PROGRESS.uiTheme==="tideline"?"DEQUIP UI OVERHAUL":"BUY UI OVERHAUL"}</button>
   <div class="shopFoot">${ownedFighters}/${CHARS.length} FIGHTERS OWNED · COSMETICS ARE COSMETIC ONLY</div>
  <button class="backBtn" id="shopback">‹ BACK</button>`, true);
  CHARS.forEach(c=>document.getElementById("shop_"+c.id).onclick=()=>{if(!isUnlocked(c)&&tryUnlock(c))shopCard();});
@@ -538,7 +539,10 @@ function shopCard(){
    const el=document.getElementById(`shopSkin_${c.id}_${i}`);
    if(el) el.onclick=()=>{ if(!isUnlocked(c)) return; if(skinOwned(c.id,i)||buySkin(c.id,i)){ setEquippedSkin(0,c.id,i); shopCard(); } };
  }));
- document.getElementById("buyUi").onclick=()=>{if(PROGRESS.uiTheme==="tideline"||buyUiTheme())shopCard();};
+ document.getElementById("buyUi").onclick=()=>{
+  if(PROGRESS.uiTheme==="tideline") dequipUiTheme(); else buyUiTheme();
+  shopCard();
+};
  document.getElementById("shopback").onclick=toMenu;
 }
 
@@ -822,6 +826,7 @@ class Player {
     this.shieldCd = 0; this.shieldT = 0; this.shieldBuffer = 0; this.respawnLock = 0;
     this.dashCd = 0; this.dashT = 0;
     this.flash = 0; this.charge = 0; this.specialCd = 0; this.ghost = 0; this.burstT = 0;
+    this.invisT = 0; this.jamT = 0;
     this.primed = false;                        // Meran's prism is loaded
     this.hist = [];
   }
@@ -961,6 +966,8 @@ class Game {
     p.flash   = Math.max(0, p.flash   - dt);
     p.ghost   = Math.max(0, p.ghost   - dt);
     p.burstT  = Math.max(0, p.burstT  - dt);
+    p.invisT  = Math.max(0, p.invisT - dt);
+    p.jamT    = Math.max(0, p.jamT - dt);
     p.specialCd = Math.max(0, p.specialCd - dt);
 
     p.hist.push(p.x, p.y);
@@ -972,6 +979,7 @@ class Game {
     }
 
     let ax = inp.ax, ay = inp.ay;
+    if (p.jamT > 0){ ax = 0; ay = 0; }
     const m = len(ax, ay);
     if (m > 0){
       ax /= m; ay /= m;
@@ -1347,7 +1355,8 @@ class Game {
         Math.round(p.parryCd*100)/100, Math.round(p.flash*100)/100,
         Math.round(p.shieldT*100)/100, Math.round(p.shieldCd*100)/100,
         Math.round(p.charge), Math.round(p.ghost*100)/100, p.skinId, Math.round(p.respawnLock*100)/100,
-        p.primed?1:0, Math.round(p.burstT*100)/100, Math.round(p.specialCd*100)/100 ]),
+        p.primed?1:0, Math.round(p.burstT*100)/100, Math.round(p.specialCd*100)/100,
+        Math.round(p.invisT*100)/100, Math.round(p.jamT*100)/100 ]),
       m:this.motes.map(m => [
         Math.round(m.x*10)/10, Math.round(m.y*10)/10,
         Math.round(m.vx), Math.round(m.vy), m.owner, m.armed?1:0, m.radius ]),
@@ -1375,6 +1384,7 @@ class Game {
       p.ammo=a[5]; p.parryT=a[6]; p.dashCd=a[7]; p.parryCd=a[8]; p.flash=a[9];
       p.shieldT=a[10]||0; p.shieldCd=a[11]||0;
       p.charge=a[12]; p.ghost=a[13]; p.skinId=a[14] || "default"; p.respawnLock=a[15]||0; p.primed=!!a[16]; p.burstT=a[17]; p.specialCd=a[18]||0;
+      p.invisT=a[19]||0; p.jamT=a[20]||0;
     });
     this.temps = s.w.map(t => ({x:t[0], y:t[1], w:t[2], h:t[3], void:!!t[4], ttl:t[5]}));
     this.rings = s.g.map(r => ({x:r[0], y:r[1], t:r[2], life:r[3]}));
@@ -1591,7 +1601,11 @@ function render(g, ui){
   // keepers
   for (const p of g.players){
     if (!p.alive) continue;
+    const online = (netMode === "host" || netMode === "guest");
+    const localSeat = netMode === "host" ? 0 : (netMode === "guest" ? 1 : -1);
+    if (online && p.invisT > 0 && p.idx !== localSeat) continue;
     const look = skinLook(p), col = look.accent, rad = p.st.radius;
+    if (online && p.invisT > 0 && p.idx === localSeat) ctx.globalAlpha = 0.20;
 
     if (p.shieldT > 0){
       ctx.globalAlpha = 0.82;
@@ -1653,6 +1667,16 @@ function render(g, ui){
 
   ctx.restore();
   drawHUD(g, ui);
+  const localSeat = netMode === "host" ? 0 : (netMode === "guest" ? 1 : -1);
+  const me = localSeat >= 0 ? g.players[localSeat] : null;
+  if (me && me.invisT > 0){
+    ctx.textAlign="center"; ctx.textBaseline="top";
+    ctx.font="800 13px ui-monospace,SFMono-Regular,Menlo,monospace";
+    ctx.fillStyle="#c9a7ff"; ctx.fillText("WISP // VEIL ACTIVE",W/2,H-54);
+    ctx.font="600 9px ui-monospace,SFMono-Regular,Menlo,monospace";
+    ctx.fillStyle="rgba(220,225,245,.62)";
+    ctx.fillText("YOU ARE INVISIBLE TO THE OTHER PLAYER",W/2,H-37);
+  }
 }
 
 function bar(x,y,w,h,frac,color){
@@ -2568,21 +2592,32 @@ const FFA_ARENA={id:"ffa_expanse",name:"The Expanse",width:1500,height:900,
  {x:670,y:390,w:160,h:120,void:true},{x:80,y:380,w:230,h:28},{x:1190,y:492,w:230,h:28},{x:650,y:80,w:200,h:26},{x:650,y:794,w:200,h:26}],
  spawns:[[120,120],[1380,120],[1380,780],[120,780],[750,130],[1370,450],[750,770],[130,450]],
  pickups:[[260,450],[470,330],[1030,330],[1240,450],[470,570],[1030,570],[750,250],[750,650]]};
-let FFA_MODE="battle",FFA_CPU_COUNT=3,FFA_DIFFICULTY=2,FFA_PICKS=[];
+let FFA_MODE="battle",FFA_CPU_COUNT=3,FFA_DIFFICULTY=2,FFA_PICKS=[],FFA_CPU_LEVELS=[];
 let FFA_SELECT_STATE={cursor:[0,0],locked:[false,false],lastAx:[0,0],lastAy:[0,0],msg:"",msgT:0};
 
 class FfaGame extends Game{
  constructor(picks,mode,count){
   super([0,1]);this.ffa=true;this.ffaMode=mode;this.ffaCpuCount=count;this.scores=Array(count+1).fill(0);this.kills=Array(count+1).fill(0);
   this.players=Array.from({length:count+1},(_,i)=>new Player(i));
-  this.players.forEach((p,i)=>p.charId=picks[i]);this.loadRound(0);
+  this.players.forEach((p,i)=>{
+   p.charId=picks[i] ?? 0;
+   p.char=CHARS[p.charId] || CHARS[0];
+   p.st=p.char.st;
+  });
+  this.loadRound(0);
  }
  get picks(){return this.players.map(p=>p.charId)}
  setPicks(p){this.players.forEach((x,i)=>{if(p[i]!=null)x.charId=p[i]})}
  loadRound(i){
   this.round=i;MOTE_SEQ=0;this.arena=FFA_ARENA;this.walls=this.arena.walls.map(w=>({...w}));this.temps=[];this.rings=[];this.motes=[];this.sparks=[];
   this.pickups=this.arena.pickups.map(a=>({x:a[0],y:a[1],cd:0}));this.time=0;this.encroach=0;this.closeTimer=0;this.overTimer=0;this.result=null;this.countdown=1.1;
-  this.players.forEach((p,i)=>{const a=this.arena.spawns[i%this.arena.spawns.length];p.reset(a[0],a[1]);p.fx=p.x<this.arena.width/2?1:-1;p.fy=0});
+  this.players.forEach((p,i)=>{
+   p.char=CHARS[p.charId] || CHARS[0];
+   p.st=p.char.st;
+   const a=this.arena.spawns[i%this.arena.spawns.length];
+   p.reset(a[0],a[1]);
+   p.fx=p.x<this.arena.width/2?1:-1;p.fy=0;
+  });
  }
  bounds(){const e=this.encroach;return{x:e,y:e,w:this.arena.width-2*e,h:this.arena.height-2*e}}
  confinePlayer(p){
@@ -2601,7 +2636,20 @@ class FfaGame extends Game{
    case"keel":this.rings.push({id:++MOTE_SEQ,x:p.x,y:p.y,t:0,life:.42,owner:p.idx});break;
    case"auger":{let z=74;this.temps.push({x:clamp(p.x+p.fx*62-z/2,2,this.arena.width-z-2),y:clamp(p.y+p.fy*62-z/2,2,this.arena.height-z-2),w:z,h:z,ttl:6,void:true,owner:p.idx});break}
    case"bracken":this.motes.forEach(m=>{if(m.owner!==p.idx&&!m.dead){let dx=p.x-m.x,dy=p.y-m.y,d=len(dx,dy)||1;if(d<280){m.vx+=dx/d*300;m.vy+=dy/d*300}}});break;
-   case"wisp":p.x=clamp(p.x+p.fx*115,p.st.radius+4,this.arena.width-p.st.radius-4);p.y=clamp(p.y+p.fy*115,p.st.radius+4,this.arena.height-p.st.radius-4);this.confinePlayer(p);break;
+   case "wisp": {
+        if (netMode === "host" || netMode === "guest"){
+          p.invisT = 3.0;
+          p.burstT = 0.15;
+        } else {
+          // Local 2 Player: BLACKOUT — disrupt the other keeper's movement.
+          const target = this.players.find(q => q.idx !== p.idx);
+          if (target){
+            target.jamT = Math.max(target.jamT || 0, 0.85);
+            this.burst(target.x, target.y, p.char.color, 20, 170);
+          }
+        }
+        break;
+      }
   }
  }
  step(dt,inputs){
@@ -2635,7 +2683,8 @@ class FfaGame extends Game{
 
 function ffaInput(g,seat,dt){
  const m=CPU.mem[seat]||(CPU.mem[seat]=cpuMem());m.t-=dt;const i=blankInput(),p=g.players[seat];if(!p?.alive)return i;
- if(m.t<=0){m.t=CPU_LEVELS[FFA_DIFFICULTY].think;let t=null,b=1e9;for(const q of g.players)if(q.idx!==seat&&q.alive){let d=len(q.x-p.x,q.y-p.y);if(d<b){b=d;t=q}}
+ if(m.t<=0){const personalLevel = FFA_CPU_LEVELS[seat] ?? FFA_DIFFICULTY;
+   m.t=CPU_LEVELS[personalLevel].think;let t=null,b=1e9;for(const q of g.players)if(q.idx!==seat&&q.alive){let d=len(q.x-p.x,q.y-p.y);if(d<b){b=d;t=q}}
   if(t){let dx=t.x-p.x,dy=t.y-p.y,d=len(dx,dy)||1;m.dir=[dx/d,dy/d];if(p.ammo>0&&b<620)m.fire=true;if(p.ready&&b<500)m.special=true;
    let near=g.motes.filter(x=>!x.dead&&x.owner!==seat).sort((a,b)=>len(a.x-p.x,a.y-p.y)-len(b.x-p.x,b.y-p.y))[0];if(near&&len(near.x-p.x,near.y-p.y)<65){m.dir=[p.x-near.x,p.y-near.y];let l=len(...m.dir)||1;m.dir=[m.dir[0]/l,m.dir[1]/l];if(p.shieldCd<=0)m.shield=true}
   }else m.dir=[0,0];
@@ -2644,22 +2693,63 @@ function ffaInput(g,seat,dt){
 }
 
 function ffaConfigCard(){
- let mode=FFA_MODE,count=FFA_CPU_COUNT,diff=FFA_DIFFICULTY;
- const avail=CHARS.filter(isUnlocked);let picks=Array.from({length:count},(_,i)=>avail[i%avail.length].id);
- const render=()=>{show(`<div class="kicker">Solo · Free For All</div><h2>Choose the fight</h2>
-  <div class="modeGrid" style="grid-template-columns:1fr 1fr"><button class="modeBtn ${mode==="battle"?"selected":""}" id="fb"><div class="num">01</div><div class="lbl">BATTLE ROYALE</div><div class="modeDesc">One life · last keeper alive · border closes after 2:00.</div></button>
-  <button class="modeBtn ${mode==="kills"?"selected":""}" id="fk"><div class="num">02</div><div class="lbl">KILL COUNT</div><div class="modeDesc">2:00 · infinite respawns · highest kills wins.</div></button></div>
-  <div class="kicker" style="margin-top:24px">NUMBER OF CPUs</div><div class="ffaCountRow">${[2,3,4,5,6,7].map(n=>`<button class="ffaCount ${n===count?"selected":""}" id="fc${n}">${n}</button>`).join("")}</div>
-  <div class="kicker">CPU DIFFICULTY</div><div class="modeGrid" style="grid-template-columns:repeat(5,1fr)">${CPU_LEVELS.map((x,i)=>`<button class="modeBtn ${i===diff?"selected":""}" id="fd${i}"><div class="num">${i+1}</div><div class="lbl">${x.id}</div></button>`).join("")}</div>
-  <div class="kicker" style="margin-top:22px">CPU FIGHTERS</div><div class="ffaRoster">${avail.map(c=>`<button class="ffaFighter ${picks.includes(c.id)?"selected":""}" style="--fc:${c.color}" id="ff${c.id}"><b style="color:${c.color}">${c.name}</b><small>${c.title}<br>${picks.includes(c.id)?"SELECTED":"AVAILABLE"}</small></button>`).join("")}</div>
-  <p class="hint">Select exactly ${count} CPU slots. Repeats are allowed when needed.</p><button class="diffBtn" id="fgo">CONTINUE TO YOUR FIGHTER</button><button class="backBtn" id="fback">‹ BACK</button>`,true);
-  document.getElementById("fb").onclick=()=>{mode="battle";render()};document.getElementById("fk").onclick=()=>{mode="kills";render()};
-  [2,3,4,5,6,7].forEach(n=>document.getElementById("fc"+n).onclick=()=>{count=n;while(picks.length<count)picks.push(avail[picks.length%avail.length].id);picks=picks.slice(0,count);render()});
-  CPU_LEVELS.forEach((_,i)=>document.getElementById("fd"+i).onclick=()=>{diff=i;render()});
-  avail.forEach(c=>document.getElementById("ff"+c.id).onclick=()=>{let k=picks.indexOf(c.id);if(k>=0&&picks.length>1)picks.splice(k,1);else if(k<0&&picks.length<count)picks.push(c.id);render()});
-  document.getElementById("fgo").onclick=()=>{if(picks.length===count){FFA_MODE=mode;FFA_CPU_COUNT=count;FFA_DIFFICULTY=diff;FFA_PICKS=picks;startFfaSelect()}};
-  document.getElementById("fback").onclick=toMenu;
- };render();
+  let mode=FFA_MODE,count=FFA_CPU_COUNT,diff=FFA_DIFFICULTY;
+  const avail=CHARS.filter(isUnlocked);
+  let picks=Array.from({length:count},(_,i)=>FFA_PICKS[i] || avail[i%avail.length].id);
+  let levels=Array.from({length:count},(_,i)=>FFA_CPU_LEVELS[i] ?? diff);
+  let activeSlot=0;
+  const render=()=>{
+    while(picks.length<count) picks.push(avail[picks.length%avail.length].id);
+    picks=picks.slice(0,count);
+    activeSlot=Math.min(activeSlot,count-1);
+    show(`<div class="kicker">Solo · Free For All</div><h2>Choose the fight</h2>
+      <div class="modeGrid" style="grid-template-columns:1fr 1fr">
+        <button class="modeBtn ${mode==="battle"?"selected":""}" id="fb"><div class="num">01</div><div class="lbl">BATTLE ROYALE</div><div class="modeDesc">One life · last keeper alive · border closes after 2:00.</div></button>
+        <button class="modeBtn ${mode==="kills"?"selected":""}" id="fk"><div class="num">02</div><div class="lbl">KILL COUNT</div><div class="modeDesc">2:00 · infinite respawns · highest kills wins.</div></button>
+      </div>
+      <div class="kicker" style="margin-top:24px">NUMBER OF CPUs</div>
+      <div class="ffaCountRow">${[2,3,4,5,6,7].map(n=>`<button class="ffaCount ${n===count?"selected":""}" id="fc${n}">${n}</button>`).join("")}</div>
+      <div class="kicker">CPU DIFFICULTY</div>
+      <div class="modeGrid" style="grid-template-columns:repeat(5,1fr)">${CPU_LEVELS.map((x,i)=>`<button class="modeBtn ${i===diff?"selected":""}" id="fd${i}"><div class="num">${i+1}</div><div class="lbl">${x.id}</div></button>`).join("")}</div>
+      <div class="kicker" style="margin-top:22px">CPU SLOTS</div>
+      <div class="ffaCountRow" style="grid-template-columns:repeat(${Math.min(count,7)},1fr)">
+        ${Array.from({length:count},(_,i)=>{const c=CHARS.find(x=>x.id===picks[i])||avail[0];return `<button class="ffaCount ${i===activeSlot?"selected":""}" id="slot${i}">CPU ${i+1}<br><b style="color:${c.color}">${c.name}</b><br><small>LV ${levels[i]+1}</small></button>`}).join("")}
+      </div>
+      <div class="kicker">CPU ${activeSlot+1} PERSONAL SETTINGS</div>
+      <div class="modeGrid" style="grid-template-columns:repeat(5,1fr)">
+        ${CPU_LEVELS.map((x,i)=>`<button class="modeBtn ${levels[activeSlot]===i?"selected":""}" id="fsl${i}"><div class="num">${i+1}</div><div class="lbl">${x.id}</div></button>`).join("")}
+      </div>
+      <div class="kicker" style="margin-top:18px">CPU FIGHTERS · ASSIGNING CPU ${activeSlot+1}</div>
+      <div class="ffaRoster">${avail.map(c=>`<button class="ffaFighter ${picks[activeSlot]===c.id?"selected":""}" style="--fc:${c.color}" id="ff${c.id}"><b style="color:${c.color}">${c.name}</b><small>${c.title}<br>${picks[activeSlot]===c.id?"ASSIGNED TO CPU "+(activeSlot+1):"CLICK TO ASSIGN"}</small></button>`).join("")}</div>
+      <p class="hint">Pick a CPU slot, then click any unlocked fighter to assign it. Duplicate fighters are allowed.</p>
+      <button class="diffBtn" id="fgo">CONTINUE TO YOUR FIGHTER</button><button class="backBtn" id="fback">‹ BACK</button>`,true);
+    document.getElementById("fb").onclick=()=>{mode="battle";render()};
+    document.getElementById("fk").onclick=()=>{mode="kills";render()};
+    [2,3,4,5,6,7].forEach(n=>document.getElementById("fc"+n).onclick=()=>{
+      count=n;
+      while(picks.length<count) picks.push(avail[picks.length%avail.length].id);
+      while(levels.length<count) levels.push(diff);
+      picks=picks.slice(0,count); levels=levels.slice(0,count);
+      activeSlot=Math.min(activeSlot,count-1);
+      render();
+    });
+    CPU_LEVELS.forEach((_,i)=>document.getElementById("fd"+i).onclick=()=>{diff=i;render()});
+    CPU_LEVELS.forEach((_,i)=>document.getElementById("fsl"+i).onclick=()=>{levels[activeSlot]=i;render()});
+    for(let i=0;i<count;i++) document.getElementById("slot"+i).onclick=()=>{activeSlot=i;render()};
+    avail.forEach(c=>document.getElementById("ff"+c.id).onclick=()=>{
+      picks[activeSlot]=c.id;
+      if(activeSlot<count-1) activeSlot++;
+      render();
+    });
+    document.getElementById("fgo").onclick=()=>{
+      if(picks.length===count && picks.every(id=>CHARS.some(c=>c.id===id))){
+        FFA_MODE=mode; FFA_CPU_COUNT=count; FFA_DIFFICULTY=diff; FFA_PICKS=picks.slice(); FFA_CPU_LEVELS=levels.slice();
+        startFfaSelect();
+      }
+    };
+    document.getElementById("fback").onclick=toMenu;
+  };
+  render();
 }
 function startFfaSelect(){const v=CHARS.map((c,i)=>i).filter(i=>isUnlocked(CHARS[i]));const c=v[0]??0;FFA_SELECT_STATE={cursor:[c,c],locked:[false,false],lastAx:[0,0],lastAy:[0,0],msg:"",msgT:0};SELECT_STATE=FFA_SELECT_STATE;state=ST.FFASELECT;hide();renderSelect(FFA_SELECT_STATE,{selHint:"SOLO FFA · choose your fighter · ENTER / SPACE to lock"})}
 function stepFfaSelect(inp){if(FFA_SELECT_STATE.locked[0])return;const v=CHARS.map((c,i)=>i).filter(i=>isUnlocked(CHARS[i]));let p=Math.max(0,v.indexOf(FFA_SELECT_STATE.cursor[0])),ax=Math.sign(inp.ax),ay=Math.sign(inp.ay);if(ax&&ax!==FFA_SELECT_STATE.lastAx[0])p=(p+ax+v.length)%v.length;if(ay&&ay!==FFA_SELECT_STATE.lastAy[0])p=clamp(p+ay*4,0,v.length-1);FFA_SELECT_STATE.cursor[0]=v[p]??0;FFA_SELECT_STATE.cursor[1]=FFA_SELECT_STATE.cursor[0];FFA_SELECT_STATE.lastAx[0]=ax;FFA_SELECT_STATE.lastAy[0]=ay;if(inp.fire){FFA_SELECT_STATE.locked[0]=true;beginFfa()}}
@@ -2698,7 +2788,7 @@ function uiPacket(){
 function toMenu(){
   state = ST.MENU; lastUiKey = "";
   CPU.seats = [false,false]; CPU.mem = [null,null];
-  FFA_MODE="battle";FFA_CPU_COUNT=3;FFA_DIFFICULTY=2;FFA_PICKS=[];
+  FFA_MODE="battle";FFA_CPU_COUNT=3;FFA_DIFFICULTY=2;FFA_PICKS=[];FFA_CPU_LEVELS=[];
   game = new Game();
   netTeardown();
   menuCard();
