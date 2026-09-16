@@ -2540,26 +2540,19 @@ const CPU_COUNTER = { ines:"keel", cato:"auger", meran:"odall", odall:"silt",
                       silt:"vane", vane:"meran", keel:"cato", auger:"ines" };
 
 function cpuSelectInput(seat){
-  const i = blankInput();
-  const human = 1 - seat;
-  if (!SELECT_STATE.locked[human]) return i;         // let them commit first
-  const now = performance.now();
-  if (now < CPU.selT) return i;
-  CPU.selT = now + 240;                              // a step every 240ms, so it can be watched
-
-  const visible = CHARS.map((c,i)=>i).filter(i => isUnlocked(CHARS[i]));
-  const target = Math.max(0, visible.find(i =>
-    CHARS[i].id === CPU_COUNTER[CHARS[SELECT_STATE.cursor[human]].id]) ?? visible[0]);
-  const cur = SELECT_STATE.cursor[seat];
-  if (cur === target){ i.fire = true; return i; }
-
-  const cp = Math.max(0, visible.indexOf(cur)), tp = Math.max(0, visible.indexOf(target));
-  const cc = cp % SEL_COLS, cr = Math.floor(cp / SEL_COLS);
-  const tc = tp % SEL_COLS, tr = Math.floor(tp / SEL_COLS);
-  if (cc !== tc) i.ax = Math.sign(tc - cc); else i.ay = Math.sign(tr - cr);
+  const i=blankInput();
+  const human=1-seat;
+  if(!SELECT_STATE.locked[human]) return i;
+  // CPU selection is deterministic and immediate once P1 commits. This avoids
+  // the old animated CPU cursor getting stuck on the select screen.
+  const visible=CHARS.map((c,idx)=>idx).filter(idx=>isUnlocked(CHARS[idx]));
+  const humanId=CHARS[SELECT_STATE.cursor[human]]?.id;
+  const targetId=CPU_COUNTER[humanId] || (visible[0] !== undefined ? CHARS[visible[0]].id : null);
+  const target=Math.max(0,visible.find(idx=>CHARS[idx].id===targetId) ?? visible[0] ?? 0);
+  SELECT_STATE.cursor[seat]=target;
+  i.fire=true;
   return i;
 }
-
 /* Mouse/touch character selection.  Keyboard selection remains unchanged. */
 cvs.addEventListener("pointerdown", e => {
   if (state !== ST.SELECT || netMode === "guest") return;
@@ -2570,13 +2563,16 @@ cvs.addEventListener("pointerdown", e => {
   for (let pos=0; pos<visible.length; pos++){
     const idx = visible[pos], cr = cardRect(idx);
     if (x >= cr.x && x <= cr.x+cr.w && y >= cr.y && y <= cr.y+cr.h){
-      // In CPU mode the human is P1; in local play clicking a card controls P1.
-      // First click selects. Clicking the already-selected card again confirms,
-      // so a casual click can never accidentally start the match.
+      // Mouse selection is a single action: click a fighter and lock P1.
+      // In CPU mode the CPU then immediately chooses P2.
       const seat = 0;
       if (!SELECT_STATE.locked[seat]) {
-        if (SELECT_STATE.cursor[seat] === idx) SELECT_STATE.locked[seat] = true;
-        else SELECT_STATE.cursor[seat] = idx;
+        SELECT_STATE.cursor[seat] = idx;
+        SELECT_STATE.locked[seat] = true;
+        if (CPU.seats[1]) {
+          const cpuIn = cpuSelectInput(1);
+          stepSelect([blankInput(), cpuIn]);
+        }
       }
       break;
     }
@@ -2592,7 +2588,7 @@ const FFA_ARENA={id:"ffa_expanse",name:"The Expanse",width:1500,height:900,
  {x:670,y:390,w:160,h:120,void:true},{x:80,y:380,w:230,h:28},{x:1190,y:492,w:230,h:28},{x:650,y:80,w:200,h:26},{x:650,y:794,w:200,h:26}],
  spawns:[[120,120],[1380,120],[1380,780],[120,780],[750,130],[1370,450],[750,770],[130,450]],
  pickups:[[260,450],[470,330],[1030,330],[1240,450],[470,570],[1030,570],[750,250],[750,650]]};
-let FFA_MODE="battle",FFA_CPU_COUNT=3,FFA_DIFFICULTY=2,FFA_PICKS=[],FFA_CPU_LEVELS=[];
+let FFA_MODE="battle",FFA_CPU_COUNT=3,FFA_DIFFICULTY=2,FFA_PICKS=[],FFA_CPU_LEVELS=[],FFA_CPU_ACTIVE=[];
 let FFA_SELECT_STATE={cursor:[0,0],locked:[false,false],lastAx:[0,0],lastAy:[0,0],msg:"",msgT:0};
 
 class FfaGame extends Game{
@@ -2741,133 +2737,120 @@ function ffaInput(g,seat,dt){
 }
 
 function ffaConfigCard(){
-  let mode=FFA_MODE,count=FFA_CPU_COUNT;
+  let mode=FFA_MODE,count=Math.max(1,Math.min(7,FFA_CPU_COUNT));
   const avail=CHARS.filter(isUnlocked);
+  if(!avail.length) return;
   let picks=Array.from({length:count},(_,i)=>FFA_PICKS[i] || avail[i%avail.length].id);
   let levels=Array.from({length:count},(_,i)=>FFA_CPU_LEVELS[i] ?? 2);
-  let activeSlot=0;
+  let active=Array.from({length:count},(_,i)=>FFA_CPU_ACTIVE.length ? FFA_CPU_ACTIVE[i]!==false : true);
+  let activeSlot=Math.max(0,Math.min(count-1,active.findIndex(Boolean)>=0?active.findIndex(Boolean):0));
 
   const render=()=>{
     while(picks.length<count) picks.push(avail[picks.length%avail.length].id);
     while(levels.length<count) levels.push(2);
-    picks=picks.slice(0,count);
-    levels=levels.slice(0,count);
-    activeSlot=Math.min(activeSlot,Math.max(0,count-1));
+    while(active.length<count) active.push(true);
+    picks=picks.slice(0,count); levels=levels.slice(0,count); active=active.slice(0,count);
+    activeSlot=Math.min(activeSlot,count-1);
 
-    show(`<div class="kicker">Solo · Free For All</div><h2>Choose the fight</h2>
+    const activeCount=active.filter(Boolean).length;
+    const c=CHARS.find(x=>x.id===picks[activeSlot])||avail[0];
+    show(`<div class="kicker">Solo · Free For All</div><h2>Set up the CPUs</h2>
       <div class="modeGrid" style="grid-template-columns:1fr 1fr">
-        <button class="modeBtn ${mode==="battle"?"selected":""}" id="fb"><div class="num">01</div><div class="lbl">BATTLE ROYALE</div><div class="modeDesc">One life · last keeper alive · border closes after 2:00.</div></button>
+        <button class="modeBtn ${mode==="battle"?"selected":""}" id="fb"><div class="num">01</div><div class="lbl">BATTLE ROYALE</div><div class="modeDesc">One life · last keeper alive.</div></button>
         <button class="modeBtn ${mode==="kills"?"selected":""}" id="fk"><div class="num">02</div><div class="lbl">KILL COUNT</div><div class="modeDesc">2:00 · infinite respawns · highest kills wins.</div></button>
       </div>
 
-      <div class="kicker" style="margin-top:24px">NUMBER OF CPUs</div>
+      <div class="kicker" style="margin-top:22px">HOW MANY CPU SLOTS?</div>
       <div class="ffaCountRow">${[1,2,3,4,5,6,7].map(n=>`<button class="ffaCount ${n===count?"selected":""}" id="fc${n}">${n}</button>`).join("")}</div>
 
-      <div class="kicker" style="margin-top:22px">SELECT A CPU</div>
+      <div class="kicker" style="margin-top:22px">SELECT A CPU TO EDIT IT</div>
       <div class="ffaCountRow" style="grid-template-columns:repeat(${Math.min(count,7)},1fr)">
         ${Array.from({length:count},(_,i)=>{
-          const c=CHARS.find(x=>x.id===picks[i])||avail[0];
+          const cc=CHARS.find(x=>x.id===picks[i])||avail[0];
           return `<button class="ffaCount ${i===activeSlot?"selected":""}" id="slot${i}">
-            CPU ${i+1}<br><b style="color:${c.color}">${c.name}</b><br><small>LEVEL ${levels[i]+1}</small>
+            <b>CPU ${i+1}</b><br><span style="color:${cc.color}">${cc.name}</span><br><small>${active[i]?"ENABLED":"DISABLED"}</small>
           </button>`;
         }).join("")}
       </div>
 
-      <div class="kicker">CPU ${activeSlot+1} LEVEL</div>
+      <div class="rule"></div>
+      <div class="kicker">CPU ${activeSlot+1} SETTINGS</div>
+      <button class="diffBtn" id="ftoggle"><b>${active[activeSlot]?"✓ ENABLED":"✕ DISABLED"}</b><span style="float:right;color:var(--muted)">${active[activeSlot]?"this CPU will fight":"this CPU will sit out"}</span></button>
+
+      <div class="kicker" style="margin-top:14px">LEVEL</div>
       <div class="modeGrid" style="grid-template-columns:repeat(5,1fr)">
         ${CPU_LEVELS.map((x,i)=>`<button class="modeBtn ${levels[activeSlot]===i?"selected":""}" id="fsl${i}"><div class="num">${i+1}</div><div class="lbl">${x.id}</div></button>`).join("")}
       </div>
 
-      <div class="kicker" style="margin-top:18px">CPU ${activeSlot+1} FIGHTER</div>
+      <div class="kicker" style="margin-top:14px">FIGHTER</div>
       <div class="ffaRoster">
-        ${avail.map(c=>`<button class="ffaFighter ${picks[activeSlot]===c.id?"selected":""}" style="--fc:${c.color}" id="ff${c.id}">
-          <b style="color:${c.color}">${c.name}</b>
-          <small>${picks[activeSlot]===c.id?"SELECTED":"SELECT"}</small>
-        </button>`).join("")}
+        ${avail.map(x=>`<button class="ffaFighter ${picks[activeSlot]===x.id?"selected":""}" style="--fc:${x.color}" id="ff${x.id}"><b style="color:${x.color}">${x.name}</b><small>${picks[activeSlot]===x.id?"SELECTED":"SELECT"}</small></button>`).join("")}
       </div>
 
-      <p class="hint">Choose how many CPUs you want. Select a CPU slot, then choose its level and fighter. Duplicate fighters are allowed.</p>
+      <p class="hint">Select CPU 1, set it up, then select CPU 2, CPU 3, and so on. Disable any CPU you don't want. ${activeCount} CPU${activeCount===1?"":"s"} enabled.</p>
       <button class="diffBtn" id="fgo">CONTINUE TO YOUR FIGHTER</button>
       <button class="backBtn" id="fback">‹ BACK</button>`,true);
 
     document.getElementById("fb").onclick=()=>{mode="battle";render()};
     document.getElementById("fk").onclick=()=>{mode="kills";render()};
-
     [1,2,3,4,5,6,7].forEach(n=>{
       document.getElementById("fc"+n).onclick=()=>{
         count=n;
         while(picks.length<count) picks.push(avail[picks.length%avail.length].id);
         while(levels.length<count) levels.push(2);
-        picks=picks.slice(0,count);
-        levels=levels.slice(0,count);
+        while(active.length<count) active.push(true);
+        picks=picks.slice(0,count); levels=levels.slice(0,count); active=active.slice(0,count);
         activeSlot=Math.min(activeSlot,count-1);
         render();
       };
     });
-
-    for(let i=0;i<count;i++){
-      document.getElementById("slot"+i).onclick=()=>{activeSlot=i;render()};
-    }
-
-    CPU_LEVELS.forEach((_,i)=>{
-      document.getElementById("fsl"+i).onclick=()=>{levels[activeSlot]=i;render()};
-    });
-
-    avail.forEach(c=>{
-      document.getElementById("ff"+c.id).onclick=()=>{
-        picks[activeSlot]=c.id;
-        render();
-      };
-    });
-
+    for(let i=0;i<count;i++) document.getElementById("slot"+i).onclick=()=>{activeSlot=i;render()};
+    document.getElementById("ftoggle").onclick=()=>{
+      if(active[activeSlot] && activeCount<=1) return;
+      active[activeSlot]=!active[activeSlot];
+      render();
+    };
+    CPU_LEVELS.forEach((_,i)=>document.getElementById("fsl"+i).onclick=()=>{levels[activeSlot]=i;render()});
+    avail.forEach(x=>document.getElementById("ff"+x.id).onclick=()=>{picks[activeSlot]=x.id;render()});
     document.getElementById("fgo").onclick=()=>{
-      FFA_MODE=mode;
-      FFA_CPU_COUNT=count;
-      FFA_PICKS=picks.slice();
-      FFA_CPU_LEVELS=levels.slice();
+      const activePicks=[],activeLevels=[];
+      for(let i=0;i<count;i++) if(active[i]){activePicks.push(picks[i]);activeLevels.push(levels[i]);}
+      if(!activePicks.length) return;
+      FFA_MODE=mode; FFA_CPU_COUNT=activePicks.length; FFA_PICKS=activePicks.slice(); FFA_CPU_LEVELS=activeLevels.slice(); FFA_CPU_ACTIVE=activePicks.map(()=>true);
       startFfaSelect();
     };
     document.getElementById("fback").onclick=toMenu;
   };
   render();
 }
-
 function startFfaSelect(){
   const v=CHARS.map((c,i)=>i).filter(i=>isUnlocked(CHARS[i]));
   const c=v[0]??0;
   FFA_SELECT_STATE={cursor:[c,c],locked:[false,false],lastAx:[0,0],lastAy:[0,0],msg:"",msgT:0};
-  SELECT_STATE=FFA_SELECT_STATE;
-  state=ST.FFASELECT;
-  hide();
+  SELECT_STATE=FFA_SELECT_STATE; state=ST.FFASELECT; hide();
   renderSelect(FFA_SELECT_STATE,{selHint:"SOLO FFA · choose your fighter · ENTER / SPACE to lock"});
 }
 
 function stepFfaSelect(inp){
-  if(FFA_SELECT_STATE.locked[0])return;
+  if(FFA_SELECT_STATE.locked[0]) return;
   const v=CHARS.map((c,i)=>i).filter(i=>isUnlocked(CHARS[i]));
   let p=Math.max(0,v.indexOf(FFA_SELECT_STATE.cursor[0]));
   const ax=Math.sign(inp.ax),ay=Math.sign(inp.ay);
   if(ax&&ax!==FFA_SELECT_STATE.lastAx[0])p=(p+ax+v.length)%v.length;
   if(ay&&ay!==FFA_SELECT_STATE.lastAy[0])p=clamp(p+ay*4,0,v.length-1);
-  FFA_SELECT_STATE.cursor[0]=v[p]??0;
-  FFA_SELECT_STATE.cursor[1]=FFA_SELECT_STATE.cursor[0];
-  FFA_SELECT_STATE.lastAx[0]=ax;
-  FFA_SELECT_STATE.lastAy[0]=ay;
+  FFA_SELECT_STATE.cursor[0]=v[p]??0; FFA_SELECT_STATE.cursor[1]=FFA_SELECT_STATE.cursor[0];
+  FFA_SELECT_STATE.lastAx[0]=ax; FFA_SELECT_STATE.lastAy[0]=ay;
   if(inp.fire){FFA_SELECT_STATE.locked[0]=true;beginFfa()}
 }
 
 function beginFfa(){
-  const picks=[FFA_SELECT_STATE.cursor[0],...FFA_PICKS.map(id=>CHARS.findIndex(c=>c.id===id))];
-  CPU.seats=Array(FFA_CPU_COUNT+1).fill(false);
-  for(let i=1;i<=FFA_CPU_COUNT;i++) CPU.seats[i]=true;
-  CPU.level=2;
-  CPU.mem=Array(FFA_CPU_COUNT+1).fill(null);
-  game=new FfaGame(picks,FFA_MODE,FFA_CPU_COUNT);
-  state=ST.PLAY;
-  hide();
-  acc=0;
+  const cpuIds=FFA_PICKS.slice(0,FFA_CPU_COUNT).map(id=>{const n=CHARS.findIndex(c=>c.id===id);return n>=0?n:0;});
+  const picks=[FFA_SELECT_STATE.cursor[0],...cpuIds];
+  CPU.seats=Array(picks.length).fill(false);
+  CPU.mem=Array(picks.length).fill(null);
+  game=new FfaGame(picks,FFA_MODE,cpuIds.length);
+  state=ST.PLAY; hide(); acc=0;
 }
-
 function renderFFA(g){
  ctx.setTransform(viewScale,0,0,viewScale,0,0);ctx.clearRect(0,0,W,H);ctx.save();const pl=g.players[0],zoom=Math.min(1,Math.min(W/g.arena.width,H/g.arena.height)*1.28),vw=W/zoom,vh=H/zoom,cx=clamp(pl.x-vw/2,0,g.arena.width-vw),cy=clamp(pl.y-vh/2,0,g.arena.height-vh);
  ctx.scale(zoom,zoom);ctx.translate(-cx,-cy);ctx.fillStyle="#071019";ctx.fillRect(cx,cy,vw,vh);
@@ -2901,7 +2884,7 @@ function uiPacket(){
 function toMenu(){
   state = ST.MENU; lastUiKey = "";
   CPU.seats = [false,false]; CPU.mem = [null,null];
-  FFA_MODE="battle";FFA_CPU_COUNT=3;FFA_DIFFICULTY=2;FFA_PICKS=[];FFA_CPU_LEVELS=[];
+  FFA_MODE="battle";FFA_CPU_COUNT=3;FFA_DIFFICULTY=2;FFA_PICKS=[];FFA_CPU_LEVELS=[];FFA_CPU_ACTIVE=[];
   game = new Game();
   netTeardown();
   menuCard();
@@ -2951,6 +2934,15 @@ function stepSelect(inputs){
     }
   }
   if (SELECT_STATE.msgT > 0) SELECT_STATE.msgT -= 1/60;
+
+  // VS CPU: the moment P1 locks, the CPU gets its fighter and the match
+  // starts. No second CPU cursor/animation is required.
+  if (CPU.seats[1] && SELECT_STATE.locked[0] && !SELECT_STATE.locked[1]) {
+    const visible = CHARS.map((c,idx)=>idx).filter(idx=>isUnlocked(CHARS[idx]));
+    const wanted = CPU_COUNTER[CHARS[SELECT_STATE.cursor[0]]?.id];
+    SELECT_STATE.cursor[1] = visible.find(idx=>CHARS[idx].id===wanted) ?? visible[0] ?? 0;
+    SELECT_STATE.locked[1] = true;
+  }
   if (SELECT_STATE.locked[0] && SELECT_STATE.locked[1]) beginMatch();
 }
 
